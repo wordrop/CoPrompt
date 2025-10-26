@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment (NEVER commit!)
+.env
+.env.local
+.env.production
+*.env
+
+# Build outputs
+dist/
+build/
+frontend/dist/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
