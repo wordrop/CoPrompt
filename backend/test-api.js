@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 const client = new Anthropic({
-  apiKey: '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',
+  apiKey: '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',
 });
 
 async function test() {
