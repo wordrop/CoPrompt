@@ -23,7 +23,7 @@ cp .env.example .env
 
 Edit `.env` and add your Anthropic API key:
 ```
-ANTHROPIC_API_KEY=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
+ANTHROPIC_API_KEY=your-api-key-here
 PORT=3001
 VITE_API_URL=http://localhost:3001
 ```
