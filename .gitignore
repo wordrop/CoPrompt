@@ -1,3 +1,4 @@
+
 # Dependencies
 node_modules/
 package-lock.json
@@ -22,3 +23,12 @@ frontend/dist/
 # IDE
 .vscode/
 .idea/
+# Test files with keys
+backend/test-*.js
+backend/debug-*.js
+backend/raw-*.js
+
+# Environment files
+.env
+.env.*
+*.env
