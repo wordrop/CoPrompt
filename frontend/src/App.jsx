@@ -1,5 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, GitBranch, Sparkles, ArrowRight, Lock, Eye, CheckCircle2, AlertTriangle, TrendingUp } from 'lucide-react';
+
+// Firebase imports
+import { db } from './firebase';
+import { collection, addDoc } from 'firebase/firestore';
+import { createSession, getSession, addParticipant, subscribeToSession } from './sessionManager';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -15,40 +20,93 @@ function App() {
   const [synthesisOutput, setSynthesisOutput] = useState(null);
   const [error, setError] = useState('');
 
+  // Session management states
+  const [sessionId, setSessionId] = useState(null);
+  const [sessionMode, setSessionMode] = useState('create');
+  const [ownerName, setOwnerName] = useState('');
+  const [ownerEmail, setOwnerEmail] = useState('');
+  const [sessionName, setSessionName] = useState('');
+
   const rooms = [
     { id: 'marketing', name: 'Marketing Strategy', icon: '📊', user: 'Sarah Chen', email: 'sarah.chen@company.com' },
     { id: 'risk', name: 'Risk & Compliance', icon: '⚖️', user: 'James Wilson', email: 'james.wilson@company.com' },
     { id: 'tech', name: 'Technical Architecture', icon: '⚙️', user: 'Priya Kumar', email: 'priya.kumar@company.com' },
     { id: 'finance', name: 'Financial Model', icon: '💰', user: 'Marcus Lee', email: 'marcus.lee@company.com' },
-    { id: 'legal', name: 'Legal Affairs', icon: '📋', user: 'Diana Torres', email: 'diana.torres@company.com' },
+    { id: 'legal', name: 'Legal Affairs', icon: '⚖️', user: 'Diana Torres', email: 'diana.torres@company.com' },
     { id: 'operations', name: 'Operations', icon: '🔧', user: 'Kevin Zhang', email: 'kevin.zhang@company.com' }
   ];
 
-  const callClaude = async (prompt, systemPrompt = '') => {
-    const response = await fetch(`${API_URL}/api/claude`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, systemPrompt })
-    });
+  const callClaude = async (prompt, systemPrompt = '', retries = 3) => {
+    let lastError;
+    
+    for (let i = 0; i < retries; i++) {
+      try {
+        const response = await fetch(`${API_URL}/api/claude`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, systemPrompt })
+        });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'API call failed');
+        if (!response.ok) {
+          const errorData = await response.json();
+          
+          // If overloaded (529), retry after delay
+          if (response.status === 529 && i < retries - 1) {
+            console.log(`⏳ API overloaded, retrying in ${(i + 1) * 2}s... (attempt ${i + 2}/${retries})`);
+            await new Promise(resolve => setTimeout(resolve, (i + 1) * 2000));
+            lastError = new Error(errorData.error || 'API overloaded');
+            // Try again in next iteration
+          } else {
+            throw new Error(errorData.error || 'API call failed');
+          }
+        } else {
+          const data = await response.json();
+          return data.response;
+        }
+      } catch (err) {
+        lastError = err;
+        if (i < retries - 1) {
+          console.log(`⏳ Retrying... (attempt ${i + 2}/${retries})`);
+          await new Promise(resolve => setTimeout(resolve, (i + 1) * 2000));
+        }
+      }
     }
-
-    const data = await response.json();
-    return data.response;
+    
+    throw lastError;
   };
 
   const handleMainPrompt = async () => {
     setLoading(true);
     setError('');
     try {
+      // Validate inputs
+      if (!ownerName.trim() || !ownerEmail.trim() || !sessionName.trim()) {
+        setError('Please provide your name, email, and session name');
+        setLoading(false);
+        return;
+      }
+
+      // Generate AI analysis
       const response = await callClaude(
         mainPrompt,
         'You are a strategic advisor analyzing a product or business idea. Provide a comprehensive initial analysis covering: key features, main challenges, target market, and monetization opportunities. Be detailed but concise (300-400 words).'
       );
+      
       setMainResponse(response);
+
+      // Create session in Firebase
+      const newSessionId = await createSession({
+        ownerName,
+        ownerEmail,
+        sessionName,
+        mainPrompt,
+        mainResponse: response
+      });
+
+      setSessionId(newSessionId);
+      console.log('✅ Session created:', newSessionId);
+      console.log('🔗 Share link:', `${window.location.origin}?session=${newSessionId}`);
+      
       setPhase('review');
     } catch (err) {
       setError(err.message);
@@ -72,7 +130,7 @@ function App() {
       };
 
       const prompt = `Context: ${mainResponse}\n\nYour role: ${room.name}\n\n${domainPrompts[roomId]}\n\nProvide detailed analysis (300-400 words).`;
-      
+
       const response = await callClaude(prompt);
       setRoomResponses({...roomResponses, [roomId]: response});
       setCompletedRooms([...completedRooms, roomId]);
@@ -95,15 +153,29 @@ function App() {
       const prompt = `Original Context: ${mainResponse}\n\n${allAnalyses}\n\nAs a strategic synthesizer, create a balanced recommendation:\n\n1. Identify 3 key trade-offs where domains conflict\n2. For each, present both options with pros/cons\n3. Make clear recommendations balancing all perspectives\n4. Provide integrated strategy\n5. List 6-8 concrete next steps\n\nRespond ONLY with valid JSON (no markdown):\n{\n  "recommendation": "title",\n  "reasoning": "brief explanation",\n  "tradeoffs": [\n    {\n      "dimension": "name",\n      "option1": {"choice": "...", "pros": "...", "cons": "..."},\n      "option2": {"choice": "...", "pros": "...", "cons": "..."},\n      "recommendation": "which and why"\n    }\n  ],\n  "synthesis": "integrated strategy",\n  "nextSteps": ["step1", "step2", ...]\n}`;
 
       const response = await callClaude(prompt, 'You are a strategic synthesizer. Respond ONLY with valid JSON, no markdown formatting.');
-      
+
       let jsonText = response.trim();
       if (jsonText.includes('```json')) {
         jsonText = jsonText.split('```json')[1].split('```')[0].trim();
       } else if (jsonText.includes('```')) {
         jsonText = jsonText.split('```')[1].split('```')[0].trim();
       }
-      
-      const parsed = JSON.parse(jsonText);
+
+      // Clean up JSON
+      jsonText = jsonText
+        .replace(/,(\s*[}\]])/g, '$1')
+        .replace(/\n/g, ' ')
+        .replace(/\r/g, '');
+
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonText);
+      } catch (parseError) {
+        console.error('JSON Parse Error:', parseError.message);
+        console.error('Attempted to parse:', jsonText.substring(0, 500));
+        throw new Error('AI returned invalid JSON format. Please try again.');
+      }
+
       setSynthesisOutput(parsed);
       setPhase('synthesis');
     } catch (err) {
@@ -136,7 +208,7 @@ function App() {
               <p className="text-slate-400 text-sm">AI-Powered Collaborative Decision Making</p>
             </div>
           </div>
-          
+
           {phase !== 'input' && (
             <div className="flex items-center gap-2 bg-slate-800/50 px-4 py-2 rounded-lg border border-slate-700">
               <div className={`w-2 h-2 rounded-full ${phase === 'review' ? 'bg-blue-500 animate-pulse' : 'bg-slate-600'}`} />
@@ -171,13 +243,47 @@ function App() {
         {phase === 'input' && (
           <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-8">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold mb-2">Main Studio</h2>
-              <p className="text-slate-400">Product Owner: Alex Rodriguez</p>
+              <h2 className="text-2xl font-bold mb-2">Create New Session</h2>
+              <p className="text-slate-400">Start a collaborative decision-making session</p>
             </div>
-            
+
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Enter your product idea or strategic question</label>
+                <label className="block text-sm font-medium mb-2">Session Name</label>
+                <input
+                  type="text"
+                  value={sessionName}
+                  onChange={(e) => setSessionName(e.target.value)}
+                  placeholder="e.g., Fitness App Strategy Review"
+                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg p-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Your Name</label>
+                  <input
+                    type="text"
+                    value={ownerName}
+                    onChange={(e) => setOwnerName(e.target.value)}
+                    placeholder="Alex Rodriguez"
+                    className="w-full bg-slate-900/50 border border-slate-600 rounded-lg p-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Your Email</label>
+                  <input
+                    type="email"
+                    value={ownerEmail}
+                    onChange={(e) => setOwnerEmail(e.target.value)}
+                    placeholder="alex@company.com"
+                    className="w-full bg-slate-900/50 border border-slate-600 rounded-lg p-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Your Product Idea or Strategic Question</label>
                 <textarea
                   value={mainPrompt}
                   onChange={(e) => setMainPrompt(e.target.value)}
@@ -185,26 +291,26 @@ function App() {
                   className="w-full h-32 bg-slate-900/50 border border-slate-600 rounded-lg p-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
                 />
               </div>
-              
+
               <div className="flex items-center gap-2 text-sm text-slate-400 bg-green-500/10 border border-green-500/30 rounded-lg p-3">
                 <Sparkles className="w-4 h-4 text-green-400" />
-                <span>Live Mode: Real Claude API responses</span>
+                <span>Live Mode: Real Claude API responses • Session will be saved to Firebase</span>
               </div>
-              
+
               <button
                 onClick={handleMainPrompt}
-                disabled={!mainPrompt.trim() || loading}
+                disabled={!mainPrompt.trim() || !ownerName.trim() || !ownerEmail.trim() || !sessionName.trim() || loading}
                 className="bg-gradient-to-r from-violet-500 to-purple-600 px-6 py-3 rounded-lg font-medium hover:shadow-lg hover:shadow-violet-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {loading ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Analyzing with Claude...
+                    Creating Session...
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-5 h-5" />
-                    Generate AI Analysis
+                    Create Session & Generate Analysis
                   </>
                 )}
               </button>
@@ -221,7 +327,7 @@ function App() {
                 Product Owner Review
               </span>
             </div>
-            
+
             <div className="bg-slate-900/50 rounded-xl p-6 mb-6 border border-violet-500/20">
               <div className="flex items-start gap-3">
                 <div className="bg-violet-500/20 p-2 rounded-lg">
@@ -230,7 +336,33 @@ function App() {
                 <p className="text-slate-300 leading-relaxed whitespace-pre-line">{mainResponse}</p>
               </div>
             </div>
-            
+
+            {sessionId && (
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-blue-400 mb-1">🔗 Shareable Session Link</p>
+                    <p className="text-xs text-slate-400">Share this link with your collaborators</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const link = `${window.location.origin}?session=${sessionId}`;
+                      navigator.clipboard.writeText(link);
+                      alert('✅ Link copied to clipboard!');
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                  >
+                    Copy Link
+                  </button>
+                </div>
+                <div className="mt-3 bg-slate-900/50 rounded p-2">
+                  <code className="text-xs text-slate-300 break-all">
+                    {window.location.origin}?session={sessionId}
+                  </code>
+                </div>
+              </div>
+            )}
+
             <button
               onClick={() => setPhase('invite')}
               className="bg-gradient-to-r from-purple-500 to-pink-600 px-6 py-3 rounded-lg font-medium hover:shadow-lg hover:shadow-purple-500/50 transition-all flex items-center gap-2"
@@ -308,14 +440,14 @@ function App() {
                   <Users className="w-5 h-5" />
                   Active Rooms ({invitedParticipants.length})
                 </h3>
-                
+
                 {rooms.filter(room => invitedParticipants.includes(room.id)).map(room => (
                   <button
                     key={room.id}
                     onClick={() => setSelectedRoom(room.id)}
                     className={`w-full text-left p-3 rounded-lg mb-2 transition-all ${
-                      selectedRoom === room.id 
-                        ? 'bg-gradient-to-r from-violet-500/20 to-purple-500/20 border-2 border-violet-500' 
+                      selectedRoom === room.id
+                        ? 'bg-gradient-to-r from-violet-500/20 to-purple-500/20 border-2 border-violet-500'
                         : 'bg-slate-900/50 border border-slate-600 hover:border-slate-500'
                     }`}
                   >
@@ -375,7 +507,7 @@ function App() {
                         <p className="text-sm text-slate-400">{rooms.find(r => r.id === selectedRoom)?.user}</p>
                       </div>
                     </div>
-                    
+
                     <div className="bg-slate-900/50 rounded-lg p-4 mb-4 border border-slate-600">
                       <p className="text-sm text-slate-300 mb-2"><strong>Original Context:</strong></p>
                       <p className="text-xs text-slate-400 line-clamp-3">{mainResponse}</p>
@@ -441,11 +573,11 @@ function App() {
                 <AlertTriangle className="w-5 h-5 text-amber-500" />
                 Key Trade-offs
               </h3>
-              
+
               {synthesisOutput.tradeoffs.map((t, i) => (
                 <div key={i} className="bg-slate-900/50 rounded-lg p-6 border border-slate-600">
                   <h4 className="font-bold text-lg mb-4 text-violet-400">{t.dimension}</h4>
-                  
+
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
                       <div className="font-medium mb-2 text-sm">{t.option1.choice}</div>
@@ -458,7 +590,7 @@ function App() {
                       <div className="text-xs text-red-400">✗ {t.option2.cons}</div>
                     </div>
                   </div>
-                  
+
                   <div className="bg-violet-500/10 border border-violet-500/30 rounded-lg p-3">
                     <div className="text-sm"><strong>Recommendation:</strong> {t.recommendation}</div>
                   </div>
@@ -469,7 +601,7 @@ function App() {
             <div className="bg-slate-900 rounded-lg p-6 border border-violet-500/30 mb-6">
               <h3 className="font-bold text-lg mb-3 text-violet-400">Integrated Recommendation</h3>
               <p className="text-slate-300 mb-4 whitespace-pre-line">{synthesisOutput.synthesis}</p>
-              
+
               <h4 className="font-bold mb-2">Next Steps:</h4>
               <ul className="space-y-2">
                 {synthesisOutput.nextSteps.map((step, i) => (
@@ -493,12 +625,16 @@ function App() {
                   setInvitedParticipants([]);
                   setSynthesisOutput(null);
                   setError('');
+                  setSessionId(null);
+                  setSessionName('');
+                  setOwnerName('');
+                  setOwnerEmail('');
                 }}
                 className="flex-1 bg-slate-700 px-6 py-3 rounded-lg font-medium hover:bg-slate-600 transition-all"
               >
                 New Session
               </button>
-              <button 
+              <button
                 onClick={() => {
                   const doc = `# ${synthesisOutput.recommendation}\n\n${synthesisOutput.reasoning}\n\n## Trade-offs\n\n${synthesisOutput.tradeoffs.map(t => `### ${t.dimension}\n\n**Option 1:** ${t.option1.choice}\n- ✓ ${t.option1.pros}\n- ✗ ${t.option1.cons}\n\n**Option 2:** ${t.option2.choice}\n- ✓ ${t.option2.pros}\n- ✗ ${t.option2.cons}\n\n**Recommendation:** ${t.recommendation}\n\n`).join('')}## Synthesis\n\n${synthesisOutput.synthesis}\n\n## Next Steps\n\n${synthesisOutput.nextSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}`;
                   const blob = new Blob([doc], { type: 'text/markdown' });
