@@ -74,6 +74,8 @@ Be thorough and structured in your response.`;
           prompt: prompt,
           customPrompt: customPrompt.trim(),
           topic: session.title,
+          mcAnalysis: session.aiAnalysis,
+          context: session.context,
         }),
       });
 
