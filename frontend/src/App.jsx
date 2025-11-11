@@ -245,21 +245,59 @@ Be thorough, critical, and specific to the context provided. Focus on actionable
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
+        {/* Header Section */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
             <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg">
               <span className="text-3xl">✨</span>
             </div>
           </div>
-          <h1 className="text-4xl font-bold text-white mb-2">CoPrompt</h1>
-          <p className="text-purple-200">AI-Powered Collaborative Decision Making</p>
+          <h1 className="text-5xl font-bold text-white mb-3">CoPrompt</h1>
+          <p className="text-xl text-purple-200 mb-6">Where Teams and AI Collaborate</p>
+          
+          {/* Description */}
+
+          {/* Key Features Section */}
+          <div className="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700 p-8 mb-8">
+            <h2 className="text-2xl font-bold text-white mb-6 flex items-center justify-center gap-2">
+              <span>✨</span> Key Features
+            </h2>
+            
+            <div className="grid md:grid-cols-3 gap-6">
+              {/* AI-Powered */}
+              <div className="text-center">
+                <div className="text-5xl mb-3">🤖</div>
+                <h3 className="text-lg font-bold text-white mb-2">AI-Powered</h3>
+                <p className="text-sm text-slate-300">
+                  Claude AI generates insights for both project leads and collaborators
+                </p>
+              </div>
+
+              {/* Real-time */}
+              <div className="text-center">
+                <div className="text-5xl mb-3">🔄</div>
+                <h3 className="text-lg font-bold text-white mb-2">Real-time</h3>
+                <p className="text-sm text-slate-300">
+                  Live updates as collaborators submit their analyses
+                </p>
+              </div>
+
+              {/* Role-Based */}
+              <div className="text-center">
+                <div className="text-5xl mb-3">🎯</div>
+                <h3 className="text-lg font-bold text-white mb-2">Role-Based</h3>
+                <p className="text-sm text-slate-300">
+                  Each collaborator brings their domain expertise
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Main Form Card */}
         <div className="bg-slate-800 rounded-2xl shadow-2xl p-8 border border-slate-700">
           <h2 className="text-2xl font-bold text-white mb-6">Create New Session</h2>
-          <p className="text-slate-300 mb-8">Start a collaborative decision-making session</p>
+          <p className="text-slate-300 mb-8">Kick off with an AI analysis of your project or idea, invite collaborators for AI-enhanced insights, synthesize all perspectives, and watch the magic unfold.</p>
 
           {error && (
             <div className="mb-6 p-4 bg-red-900/50 border border-red-700 rounded-lg">
