@@ -148,7 +148,7 @@ export default function MCDashboard({ sessionId, session }) {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-6">
       <div className="max-w-6xl mx-auto">
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">MC Dashboard</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{session.mcName}'s Dashboard</h1>
           <p className="text-gray-600">{session.title}</p>
           <div className="mt-4 flex items-center gap-4">
             <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
