@@ -39,8 +39,8 @@ app.post('/api/claude', async (req, res) => {
     console.log('📡 Calling Claude API...');
 
     const message = await anthropic.messages.create({
-      model: 'claude-3-haiku-20240307',
-      max_tokens: 4096,
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2500,
       system: systemPrompt || 'You are a helpful AI assistant.',
       messages: [{ role: 'user', content: prompt }],
     });
@@ -77,8 +77,8 @@ app.post('/api/generate-analysis', async (req, res) => {
     console.log('📊 Generating MC analysis...');
 
     const message = await anthropic.messages.create({
-      model: 'claude-3-haiku-20240307',
-      max_tokens: 4096,
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
       system: 'You are an expert analyst helping to facilitate collaborative research.',
       messages: [{ role: 'user', content: prompt }],
     });
@@ -119,8 +119,8 @@ app.post('/api/generate-collaborator-analysis', async (req, res) => {
       : prompt;
 
     const message = await anthropic.messages.create({
-      model: 'claude-3-haiku-20240307',
-      max_tokens: 4096,
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1200,
       system: 'You are an expert analyst providing detailed analysis based on specific instructions.',
       messages: [{ role: 'user', content: fullPrompt }],
     });
@@ -157,24 +157,44 @@ app.post('/api/generate-synthesis', async (req, res) => {
     console.log(`🔄 Generating synthesis from ${analyses.length} analyses...`);
 
     // Build the synthesis prompt
-    let synthesisPrompt = `You are synthesizing multiple AI analyses about: "${topic}"\n\n`;
+    // Build the synthesis prompt - EXECUTIVE BRIEF FORMAT
+    let synthesisPrompt = `STRATEGIC QUESTION: ${topic}
+
+EXPERT INPUTS:
+`;
     
     analyses.forEach((analysis, index) => {
-      synthesisPrompt += `\n--- Analysis ${index + 1} (from ${analysis.collaboratorName || 'Collaborator'}) ---\n`;
-      synthesisPrompt += `${analysis.text}\n`;
+      synthesisPrompt += `\n[${analysis.collaboratorName}]:\n${analysis.text}\n`;
     });
 
-    synthesisPrompt += `\n\nPlease create a comprehensive synthesis that:
-1. Identifies key themes and patterns across all analyses
-2. Notes areas of agreement and divergence
-3. Highlights unique insights from individual analyses
-4. Provides an integrated conclusion
+    synthesisPrompt += `
 
-Format your response with clear sections and bullet points for readability.`;
+Create an EXECUTIVE BRIEF (MAXIMUM 400 words - count them):
+
+## RECOMMENDATION (3 sentences max)
+What should be done? Be decisive.
+
+## CONVERGING INSIGHTS (3 bullets)
+Where experts agree = high confidence
+
+## CRITICAL CONCERNS (3 bullets)
+What could go wrong?
+
+## ACTION PLAN (4-5 items)
+1. [Specific action + owner]
+2. [Specific action + owner]
+etc.
+
+RULES:
+- Maximum 400 words total (not 401)
+- No fluff or repetition
+- No background/context setting
+- Cut anything not decision-critical
+- Board-level brevity`;
 
     const message = await anthropic.messages.create({
-      model: 'claude-3-haiku-20240307',
-      max_tokens: 4096,
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1800,
       system: 'You are an expert at synthesizing multiple perspectives into coherent insights.',
       messages: [{ role: 'user', content: synthesisPrompt }],
     });
