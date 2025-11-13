@@ -60,7 +60,9 @@ Please include:
 3. Critical questions or considerations
 4. Potential implications or applications
 
-Be thorough and structured in your response.`;
+Be thorough and structured in your response. Focus on insights only YOU can provide. Build upon the MC's analysis, don't repeat it.
+
+STRICT LIMIT: 150-200 words maximum. Be ruthlessly concise.`;
       }
 
       console.log('📡 Calling backend for collaborator analysis...');
@@ -136,7 +138,7 @@ Be thorough and structured in your response.`;
       });
 
       setHasSubmitted(true);
-      alert('✅ Successfully submitted to main room!');
+      alert('✅ Successfully submitted!');
 
     } catch (error) {
       console.error('Submission error:', error);
@@ -175,10 +177,10 @@ Be thorough and structured in your response.`;
             Submission Complete!
           </h2>
           <p className="text-gray-600 mb-4">
-            Your {role} analysis has been submitted to the main room.
+            Your {role} analysis has been submitted.
           </p>
           <p className="text-sm text-gray-500">
-            The Master of Ceremonies can now view your contribution.
+            {session.mcName} can now view your contribution.
           </p>
         </div>
       </div>
@@ -204,7 +206,7 @@ Be thorough and structured in your response.`;
         {/* Original Context */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-xl font-bold text-gray-900 mb-3">
-            Original Context from MC
+            Original Context from {session.mcName} ({session.mcRole})
           </h2>
           <div className="prose max-w-none">
             <p className="text-gray-700 whitespace-pre-wrap">{session.context}</p>
@@ -212,7 +214,7 @@ Be thorough and structured in your response.`;
           
           {session.aiAnalysis && (
             <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-sm font-semibold text-blue-900 mb-2">MC's AI Analysis:</p>
+              <p className="text-sm font-semibold text-blue-900 mb-2">{session.mcName}'s Initial Analysis ({session.mcRole}):</p>
               <p className="text-sm text-gray-700 whitespace-pre-wrap">{session.aiAnalysis}</p>
             </div>
           )}
@@ -334,10 +336,10 @@ Be thorough and structured in your response.`;
                 : 'bg-gradient-to-r from-green-600 to-blue-600 text-white hover:from-green-700 hover:to-blue-700'
             }`}
           >
-            📤 Submit to Main Room
+            📤 Submit your Analysis
           </button>
           <p className="text-xs text-gray-500 text-center mt-2">
-            Once submitted, the MC will be able to view your analysis
+            Once submitted, the {session.mcName} will be able to view your analysis
           </p>
         </div>
       </div>

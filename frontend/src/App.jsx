@@ -65,21 +65,28 @@ function App() {
     setError(null);
 
     try {
-      const prompt = `You are an expert strategic analyst helping a ${mcRole === 'Other' ? mcCustomRole : mcRole} prepare for a collaborative decision-making session.
+      const prompt = `You are an expert strategic analyst. Provide a BRUTALLY CONCISE analysis.
 
-STRATEGIC CONTEXT:
-${context}
+CONTEXT: ${context}
+QUESTION: ${title}
 
-SESSION TITLE: ${title}
+STRICT LIMIT: 200 words maximum (not 201, not 250 - exactly 200 or less)
 
-Please provide a comprehensive initial analysis focusing specifically on the strategic question and context provided above. Your analysis should:
+Format:
 
-1. Key Themes and Concepts - Identify the core elements relevant to THIS specific strategic question
-2. Different Perspectives to Consider - What viewpoints are crucial for THIS particular decision
-3. Important Questions to Explore - What needs to be answered for THIS specific context
-4. Potential Implications - What are the consequences and considerations for THIS particular situation
+KEY INSIGHTS (3 bullets max)
+- [Critical finding only]
 
-Be thorough, critical, and specific to the context provided. Focus on actionable insights directly relevant to the strategic question, not generic background information.`;
+EXPERT VIEWS NEEDED (3 bullets max)
+- [Specific expertise required]
+
+CRITICAL QUESTIONS (3 questions max)
+- [Must-answer questions]
+
+MAIN RISKS (2 bullets max)
+- [Highest-stakes concerns]
+
+Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
 
       console.log('📡 Calling backend for analysis...');
 
