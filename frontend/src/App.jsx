@@ -18,6 +18,9 @@ function App() {
   const [mcRole, setMcRole] = useState('Project Lead');
   const [mcCustomRole, setMcCustomRole] = useState('');
   const [selectedRoles, setSelectedRoles] = useState([]);
+  const [customRoles, setCustomRoles] = useState([]);           // NEW: Array of custom role names
+  const [customRoleInput, setCustomRoleInput] = useState('');   // NEW: Text input for new custom role
+  const [customRoleError, setCustomRoleError] = useState('');   // NEW: Error message for custom roles
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [error, setError] = useState(null);
@@ -60,6 +63,44 @@ function App() {
     );
   };
 
+  // NEW: Add custom role
+  const addCustomRole = () => {
+    const trimmedRole = customRoleInput.trim();
+    
+    // Validation
+    if (!trimmedRole) {
+      setCustomRoleError('Please enter a role name');
+      return;
+    }
+    
+    if (customRoles.length >= 5) {
+      setCustomRoleError('Maximum 5 custom roles allowed');
+      return;
+    }
+    
+    if (selectedRoles.includes(trimmedRole) || customRoles.includes(trimmedRole)) {
+      setCustomRoleError('This role already exists');
+      return;
+    }
+    
+    // Add role and clear input
+    setCustomRoles([...customRoles, trimmedRole]);
+    setCustomRoleInput('');
+    setCustomRoleError('');
+  };
+
+  // NEW: Remove custom role
+  const removeCustomRole = (roleToRemove) => {
+    setCustomRoles(customRoles.filter(role => role !== roleToRemove));
+  };
+
+  // NEW: Handle Enter key in input
+  const handleCustomRoleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addCustomRole();
+    }
+  };
   const generateAIAnalysis = async () => {
     setIsGenerating(true);
     setError(null);
@@ -122,7 +163,8 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
   };
 
   const createSession = async () => {
-    if (!title.trim() || !context.trim() || !mcName.trim() || !mcEmail.trim() || selectedRoles.length === 0) {
+    const totalRoles = selectedRoles.length + customRoles.length;
+    if (!title.trim() || !context.trim() || !mcName.trim() || !mcEmail.trim() || totalRoles === 0) {
       alert('Please fill all required fields and select at least one role');
       return;
     }
@@ -142,7 +184,7 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
         mcName,
         mcEmail,
         mcRole: finalRole,
-        selectedRoles,
+        selectedRoles: [...selectedRoles, ...customRoles],  // CHANGED: Combine both types
         createdAt: new Date().toISOString(),
         submissions: [],
         synthesis: ''
@@ -156,7 +198,8 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
       // Generate invite links
       const baseUrl = window.location.origin;
       const links = {};
-      selectedRoles.forEach(role => {
+      const allRoles = [...selectedRoles, ...customRoles];  // CHANGED: Combine both
+      allRoles.forEach(role => {
         links[role] = `${baseUrl}?session=${newSessionId}&role=${encodeURIComponent(role)}`;
       });
       setInviteLinks(links);
@@ -185,6 +228,9 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
     setMcRole('Project Lead');
     setMcCustomRole('');
     setSelectedRoles([]);
+    setCustomRoles([]);        // NEW
+    setCustomRoleInput('');    // NEW
+    setCustomRoleError('');    // NEW
     setAiAnalysis('');
     setInviteLinks({});
     setError(null);
@@ -253,14 +299,18 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8">
       <div className="max-w-4xl mx-auto">
         {/* Header Section */}
+        {/* Header with tagline */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
-            <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg">
-              <span className="text-3xl">✨</span>
-            </div>
-          </div>
-          <h1 className="text-5xl font-bold text-white mb-3">CoPrompt</h1>
-          <p className="text-xl text-purple-200 mb-6">Where Teams and AI Collaborate</p>
+          <h1 className="text-5xl font-bold text-white mb-3">
+            ✨ CoPrompt
+          </h1>
+          <p className="text-xl text-slate-300 mb-2">
+            Where Teams and AI Collaborate
+          </p>
+          <p className="text-base text-slate-400 italic">
+            CoPrompt helps teams turn ideas into insight — collaboratively, instantly, and intelligently.
+          </p>
+        </div>
           
           {/* Description */}
 
@@ -299,12 +349,12 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
               </div>
             </div>
           </div>
-        </div>
 
         {/* Main Form Card */}
         <div className="bg-slate-800 rounded-2xl shadow-2xl p-8 border border-slate-700">
-          <h2 className="text-2xl font-bold text-white mb-6">Create New Session</h2>
-          <p className="text-slate-300 mb-8">Kick off with an AI analysis of your project or idea, invite collaborators for AI-enhanced insights, synthesize all perspectives, and watch the magic unfold.</p>
+          <h2 className="text-2xl font-bold text-white mb-3">Create New Session</h2>
+          <p className="text-sm text-slate-400 mb-6 italic">Each session is a collaborative workspace where AI and your team analyze a project together.</p>
+          <p className="text-slate-300 mb-8">Kick off with an AI analysis of your project or idea, invite collaborators for AI-enhanced insights, synthesize all perspectives, and watch insights come to life in real time.</p>
 
           {error && (
             <div className="mb-6 p-4 bg-red-900/50 border border-red-700 rounded-lg">
@@ -383,7 +433,7 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
           {/* Strategic Context */}
           <div className="mb-6">
             <label className="block text-sm font-semibold text-slate-200 mb-2">
-              Your Product Idea or Strategic Question
+              What would you like to work on today?
             </label>
             <textarea
               value={context}
@@ -395,12 +445,11 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
           </div>
 
           {/* Live Mode Info */}
-          <div className="mb-6 p-4 bg-green-900/30 border border-green-700 rounded-lg flex items-start gap-3">
-            <span className="text-green-400 text-xl">✓</span>
-            <div>
-              <p className="text-sm text-green-200 font-semibold">Live Mode: Real Claude API responses</p>
-              <p className="text-xs text-green-300 mt-1">Session will be saved to Firebase</p>
-            </div>
+          {/* AI Info */}
+          <div className="mb-6 p-4 bg-purple-900/30 border border-purple-700 rounded-lg">
+            <p className="text-sm text-purple-200 text-center">
+              Powered by Claude AI to generate deep insights from your team's expertise
+            </p>
           </div>
 
           {/* Generate Analysis Button */}
@@ -436,11 +485,18 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
           </div>
 
           {/* Role Selection */}
+          {/* Role Selection */}
+          {/* Role Selection */}
           <div className="mb-6">
-            <label className="block text-sm font-semibold text-slate-200 mb-3">
-              Select Roles to Invite ({selectedRoles.length} selected)
+            <label className="block text-sm font-semibold text-slate-200 mb-2">
+              Select roles you would like to include
             </label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <p className="text-xs text-slate-400 mb-3 italic">
+              Each brings a unique AI-driven perspective. ({selectedRoles.length + customRoles.length} selected)
+            </p>
+            
+            {/* Predefined Roles Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
               {collaboratorRoles.map(role => (
                 <button
                   key={role}
@@ -455,20 +511,80 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
                 </button>
               ))}
             </div>
+
+            {/* Custom Roles Section */}
+            <div className="mt-6 pt-6 border-t border-slate-600">
+              <label className="block text-sm font-semibold text-slate-200 mb-3">
+                Add Custom Roles (Optional - Max 5)
+              </label>
+              
+              {/* Custom Role Input */}
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  value={customRoleInput}
+                  onChange={(e) => setCustomRoleInput(e.target.value)}
+                  onKeyPress={handleCustomRoleKeyPress}
+                  placeholder="e.g., Operational Risk, Chief Data Officer"
+                  maxLength={50}
+                  disabled={customRoles.length >= 5}
+                  className="flex-1 px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <button
+                  onClick={addCustomRole}
+                  disabled={!customRoleInput.trim() || customRoles.length >= 5}
+                  className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                >
+                  + Add
+                </button>
+              </div>
+
+              {/* Error Message */}
+              {customRoleError && (
+                <p className="text-red-400 text-sm mb-3">{customRoleError}</p>
+              )}
+
+              {/* Custom Roles List */}
+              {customRoles.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-slate-400 mb-2">Custom Roles Added:</p>
+                  {customRoles.map((role, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between px-4 py-2 bg-slate-700 border border-purple-500 rounded-lg"
+                    >
+                      <span className="text-white font-medium">{role}</span>
+                      <button
+                        onClick={() => removeCustomRole(role)}
+                        className="text-red-400 hover:text-red-300 transition-colors text-lg font-bold"
+                        title="Remove this custom role"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Create Session Button */}
           <button
             onClick={createSession}
-            disabled={!title.trim() || !context.trim() || !mcName.trim() || !mcEmail.trim() || selectedRoles.length === 0 || (mcRole === 'Other' && !mcCustomRole.trim())}
+            disabled={!title.trim() || !context.trim() || !mcName.trim() || !mcEmail.trim() || (selectedRoles.length === 0 && customRoles.length === 0) || (mcRole === 'Other' && !mcCustomRole.trim())}
             className={`w-full py-4 rounded-lg font-bold text-lg transition-colors ${
-              !title.trim() || !context.trim() || !mcName.trim() || !mcEmail.trim() || selectedRoles.length === 0 || (mcRole === 'Other' && !mcCustomRole.trim())
+              !title.trim() || !context.trim() || !mcName.trim() || !mcEmail.trim() || (selectedRoles.length === 0 && customRoles.length === 0) || (mcRole === 'Other' && !mcCustomRole.trim())
                 ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
                 : 'bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700'
             }`}
           >
-            ✨ Create Session & Generate Analysis
+           ✨ Share Analysis & Invite Collaborators
           </button>
+          
+          {/* Footer Tagline */}
+          <p className="text-center text-slate-400 text-sm mt-6 italic">
+            Where collaboration meets AI
+          </p>
         </div>
       </div>
     </div>
