@@ -1,7 +1,97 @@
 import { useState, useEffect } from 'react';
 import { db } from './firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
+// Add this helper component after imports, before the main export
+function SynthesisDisplay({ synthesis }) {
+  // Parse synthesis into sections
+  const sections = parseSynthesisSections(synthesis);
+  
+  return (
+    <div className="space-y-4">
+      {/* Agreement Section - Green */}
+      {sections.agreement && (
+        <div className="border-2 border-green-400 bg-green-50 rounded-xl p-6 shadow-sm">
+          <h3 className="text-xl font-bold text-green-900 mb-4 flex items-center gap-2">
+            <span className="text-2xl">🤝</span>
+            Areas of Agreement
+          </h3>
+          <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
+            {sections.agreement}
+          </div>
+        </div>
+      )}
 
+      {/* Conflict Section - Orange */}
+      {sections.conflict && (
+        <div className="border-2 border-orange-400 bg-orange-50 rounded-xl p-6 shadow-sm">
+          <h3 className="text-xl font-bold text-orange-900 mb-4 flex items-center gap-2">
+            <span className="text-2xl">⚔️</span>
+            Areas of Conflict
+          </h3>
+          <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
+            {sections.conflict}
+          </div>
+        </div>
+      )}
+
+      {/* Critical Points Section - Red */}
+      {sections.critical && (
+        <div className="border-2 border-red-400 bg-red-50 rounded-xl p-6 shadow-sm">
+          <h3 className="text-xl font-bold text-red-900 mb-4 flex items-center gap-2">
+            <span className="text-2xl">⚠️</span>
+            Critical Points & Red Flags
+          </h3>
+          <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
+            {sections.critical}
+          </div>
+        </div>
+      )}
+
+      {/* Executive Summary Section - Blue */}
+      {sections.summary && (
+        <div className="border-2 border-blue-400 bg-blue-50 rounded-xl p-6 shadow-sm">
+          <h3 className="text-xl font-bold text-blue-900 mb-4 flex items-center gap-2">
+            <span className="text-2xl">📊</span>
+            Executive Summary & Recommendation
+          </h3>
+          <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
+            {sections.summary}
+          </div>
+        </div>
+      )}
+
+      {/* Fallback: If parsing fails, show original */}
+      {!sections.agreement && !sections.conflict && !sections.critical && !sections.summary && (
+        <div className="p-6 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-gray-700 whitespace-pre-wrap">{synthesis}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Helper function to parse synthesis into sections
+function parseSynthesisSections(synthesis) {
+  const sections = {
+    agreement: null,
+    conflict: null,
+    critical: null,
+    summary: null
+  };
+
+  // Split by section headers
+  const agreementMatch = synthesis.match(/🤝 AREAS OF AGREEMENT([\s\S]*?)(?=⚔️ AREAS OF CONFLICT|$)/);
+  const conflictMatch = synthesis.match(/⚔️ AREAS OF CONFLICT([\s\S]*?)(?=⚠️ CRITICAL POINTS|$)/);
+  const criticalMatch = synthesis.match(/⚠️ CRITICAL POINTS[\s\S]*?RED FLAGS([\s\S]*?)(?=📊 EXECUTIVE SUMMARY|$)/);
+  const summaryMatch = synthesis.match(/📊 EXECUTIVE SUMMARY[\s\S]*?RECOMMENDATION([\s\S]*?)$/);
+
+  if (agreementMatch) sections.agreement = agreementMatch[1].trim();
+  if (conflictMatch) sections.conflict = conflictMatch[1].trim();
+  if (criticalMatch) sections.critical = criticalMatch[1].trim();
+  if (summaryMatch) sections.summary = summaryMatch[1].trim();
+
+  return sections;
+}
 export default function MCDashboard({ sessionId, session }) {
   const [submissions, setSubmissions] = useState([]);
   const [synthesis, setSynthesis] = useState('');
@@ -202,13 +292,9 @@ export default function MCDashboard({ sessionId, session }) {
           </div>
 
           {synthesis ? (
-            <div>
-              <div className="p-6 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg border border-purple-200 mb-4">
-                <p className="text-sm font-semibold text-purple-900 mb-4">Combined Analysis:</p>
-                <div className="prose max-w-none">
-                  <p className="text-gray-700 whitespace-pre-wrap">{synthesis}</p>
-                </div>
-              </div>
+  <div>
+    {/* Parse and display synthesis in colored boxes */}
+    <SynthesisDisplay synthesis={synthesis} />
 
               {/* Download Options */}
               <div className="flex flex-wrap gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
