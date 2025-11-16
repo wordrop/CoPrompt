@@ -120,7 +120,7 @@ app.post('/api/generate-collaborator-analysis', async (req, res) => {
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 1200,
+      max_tokens: 4000,
       system: 'You are an expert analyst providing detailed analysis based on specific instructions.',
       messages: [{ role: 'user', content: fullPrompt }],
     });
@@ -158,9 +158,13 @@ app.post('/api/generate-synthesis', async (req, res) => {
 
     // Build the synthesis prompt
     // Build the synthesis prompt - EXECUTIVE BRIEF FORMAT
-    let synthesisPrompt = `STRATEGIC QUESTION: ${topic}
+    // Build the synthesis prompt - RESTORE ORIGINAL 4-SECTION STRUCTURE
+    let synthesisPrompt = `You are synthesizing expert analyses into a structured decision brief.
 
-EXPERT INPUTS:
+STRATEGIC QUESTION:
+${topic}
+
+EXPERT CONTRIBUTIONS:
 `;
     
     analyses.forEach((analysis, index) => {
@@ -169,28 +173,62 @@ EXPERT INPUTS:
 
     synthesisPrompt += `
 
-Create an EXECUTIVE BRIEF (MAXIMUM 400 words - count them):
+Create a comprehensive synthesis with FOUR CLEARLY LABELED SECTIONS:
 
-## RECOMMENDATION (3 sentences max)
-What should be done? Be decisive.
+## 🤝 AREAS OF AGREEMENT
 
-## CONVERGING INSIGHTS (3 bullets)
-Where experts agree = high confidence
+List the key points where experts converge (3-5 main areas of consensus):
+- [Agreement point 1]
+- [Agreement point 2]
+- [Agreement point 3]
 
-## CRITICAL CONCERNS (3 bullets)
-What could go wrong?
+AI ASSESSMENT:
+Provide your interpretation of what this consensus means for the decision. What strengths does this agreement reveal? What can we confidently move forward with based on expert convergence?
 
-## ACTION PLAN (4-5 items)
-1. [Specific action + owner]
-2. [Specific action + owner]
-etc.
+---
 
-RULES:
-- Maximum 400 words total (not 401)
-- No fluff or repetition
-- No background/context setting
-- Cut anything not decision-critical
-- Board-level brevity`;
+## ⚔️ AREAS OF CONFLICT
+
+List the disagreements or divergent perspectives between experts (2-4 conflicts):
+- [Conflict 1: Describe the different viewpoints]
+- [Conflict 2: Describe the different viewpoints]
+
+AI RESOLUTION RECOMMENDATION:
+For each major conflict, suggest how to resolve it or which perspective to prioritize. Explain your reasoning. If the conflict reveals important trade-offs, highlight them clearly.
+
+---
+
+## ⚠️ CRITICAL POINTS & RED FLAGS
+
+Highlight the most important issues that could make or break this decision (3-5 items):
+- [Critical issue 1]
+- [Critical issue 2]
+- [Critical issue 3]
+
+CONTEXT & IMPLICATIONS:
+Explain why each point is critical. What happens if these are ignored? What dependencies or risks do they create?
+
+---
+
+## 📊 EXECUTIVE SUMMARY & RECOMMENDATION
+
+CLEAR RECOMMENDATION:
+[State your Go/No-Go recommendation or specific path forward - be decisive]
+
+KEY RATIONALE:
+[Explain why this recommendation, drawing from expert consensus and your conflict resolution]
+
+NEXT STEPS:
+1. [Specific action with owner/timeline]
+2. [Specific action with owner/timeline]
+3. [Specific action with owner/timeline]
+
+TIMELINE CONSIDERATIONS:
+[Any time-sensitive factors or sequencing requirements]
+
+---
+
+Aim for 800-1000 words total. Use the section structure exactly as shown. Be thorough in each section - this is a strategic decision that deserves comprehensive synthesis.`;
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
