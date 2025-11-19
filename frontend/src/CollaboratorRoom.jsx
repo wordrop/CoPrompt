@@ -1,12 +1,118 @@
 import { useState, useEffect } from 'react';
+import { doc, getDoc, setDoc, updateDoc, arrayUnion, onSnapshot } from 'firebase/firestore';
 import { db } from './firebase';
-import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+
+// Add this component after imports, before the main CollaboratorRoom export
+function SynthesisReviewForm({ sessionId, collaboratorName, collaboratorRole, onReviewSubmitted }) {
+  const [rating, setRating] = useState('');
+const [comment, setComment] = useState('');
+const [isSubmitting, setIsSubmitting] = useState(false);
+const [error, setError] = useState('');
+
+  const submitReview = async () => {
+    if (!rating) {
+      setError('Please select a rating');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      const sessionRef = doc(db, 'sessions', sessionId);
+      
+      const review = {
+        collaboratorName,
+        role: collaboratorRole,
+        rating,
+        comment: comment.trim(),
+        timestamp: new Date().toISOString()
+      };
+
+      await updateDoc(sessionRef, {
+        synthesisReviews: arrayUnion(review)
+      });
+
+      onReviewSubmitted();
+    } catch (err) {
+      console.error('Error submitting review:', err);
+      setError('Failed to submit review. Please try again.');
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-semibold text-slate-200 mb-3">
+          Rate this synthesis:
+        </p>
+        <div className="flex gap-4">
+          <button
+            onClick={() => setRating('thumbs_up')}
+            className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
+              rating === 'thumbs_up'
+                ? 'bg-green-600 border-green-400 text-white'
+                : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
+            }`}
+          >
+            <span className="text-2xl">👍</span>
+            <div className="text-sm font-semibold mt-1">Helpful</div>
+          </button>
+          <button
+            onClick={() => setRating('thumbs_down')}
+            className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
+              rating === 'thumbs_down'
+                ? 'bg-orange-600 border-orange-400 text-white'
+                : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
+            }`}
+          >
+            <span className="text-2xl">👎</span>
+            <div className="text-sm font-semibold mt-1">Needs Work</div>
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-slate-200 mb-2">
+          Comments or Suggestions (optional):
+        </label>
+        <textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="e.g., Need more detail on timeline, or Please format as a comparison table"
+          rows={3}
+          className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+        />
+      </div>
+
+      {error && (
+        <div className="p-3 bg-red-900/50 border border-red-700 rounded-lg">
+          <p className="text-sm text-red-200">{error}</p>
+        </div>
+      )}
+
+      <button
+        onClick={submitReview}
+        disabled={!rating || isSubmitting}
+        className={`w-full py-3 rounded-lg font-semibold transition-colors ${
+          !rating || isSubmitting
+            ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
+            : 'bg-purple-600 text-white hover:bg-purple-700'
+        }`}
+      >
+        {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
+      </button>
+    </div>
+  );
+}
 
 export default function CollaboratorRoom({ sessionId }) {
   const [session, setSession] = useState(null);
   const [collaboratorName, setCollaboratorName] = useState('');
   const [customPrompt, setCustomPrompt] = useState('');
   const [analysis, setAnalysis] = useState('');
+  const [hasReviewed, setHasReviewed] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [iterations, setIterations] = useState([]);
@@ -17,28 +123,36 @@ export default function CollaboratorRoom({ sessionId }) {
   const urlParams = new URLSearchParams(window.location.search);
   const role = urlParams.get('role');
 
-  useEffect(() => {
-    const loadSession = async () => {
-      try {
-        const sessionRef = doc(db, 'sessions', sessionId);
-        const sessionSnap = await getDoc(sessionRef);
-        
-        if (sessionSnap.exists()) {
-          setSession(sessionSnap.data());
-        } else {
-          console.error('Session not found');
-        }
-      } catch (error) {
-        console.error('Error loading session:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+ useEffect(() => {
+  if (!sessionId) return;
 
-    if (sessionId) {
-      loadSession();
+  const sessionRef = doc(db, 'sessions', sessionId);
+  
+  // Real-time listener instead of one-time fetch
+  const unsubscribe = onSnapshot(sessionRef, (docSnapshot) => {
+    if (docSnapshot.exists()) {
+      const sessionData = docSnapshot.data();
+      setSession(sessionData);
+      setLoading(false);
+      
+      // Debug logs
+      console.log('🔄 Session updated:', {
+        hasSynthesis: !!sessionData.synthesis,
+        synthesisLength: sessionData.synthesis?.length || 0
+      });
+    } else {
+      setError('Session not found');
+      setLoading(false);
     }
-  }, [sessionId]);
+  }, (err) => {
+    console.error('Error listening to session:', err);
+    setError('Failed to load session');
+    setLoading(false);
+  });
+
+  // Cleanup listener when component unmounts
+  return () => unsubscribe();
+}, [sessionId]);
 
   const generateAnalysis = async () => {
     setIsGenerating(true);
@@ -168,10 +282,12 @@ STRICT LIMIT: 150-200 words maximum. Be ruthlessly concise.`;
     );
   }
 
-  if (hasSubmitted) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-xl p-8 max-w-md text-center">
+if (hasSubmitted) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Success Card */}
+        <div className="bg-white rounded-lg shadow-xl p-8 text-center">
           <div className="text-6xl mb-4">✅</div>
           <h2 className="text-2xl font-bold text-green-600 mb-4">
             Submission Complete!
@@ -183,9 +299,58 @@ STRICT LIMIT: 150-200 words maximum. Be ruthlessly concise.`;
             {session.mcName} can now view your contribution.
           </p>
         </div>
+
+        {/* Synthesis Review Section */}
+        {session?.synthesis && (
+          <div className="bg-white rounded-lg shadow-xl p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">
+              📊 Synthesis Ready for Your Review
+            </h3>
+            <p className="text-gray-600 mb-4">
+              The session leader has generated a synthesis. Please review and provide feedback.
+            </p>
+
+            {/* Display Synthesis */}
+            <div className="mb-6 p-6 bg-gray-50 rounded-lg border border-gray-200 max-h-96 overflow-y-auto">
+              <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
+                {session.synthesis}
+              </p>
+            </div>
+
+            {/* Check if this collaborator already reviewed */}
+            {session.synthesisReviews?.find(r => r.collaboratorName === collaboratorName) ? (
+              <div className="p-4 bg-green-50 border border-green-300 rounded-lg">
+                <p className="text-green-700 text-sm">
+                  ✓ You've already provided feedback on this synthesis
+                </p>
+              </div>
+            ) : (
+              <SynthesisReviewForm 
+                sessionId={sessionId}
+                collaboratorName={collaboratorName}
+                collaboratorRole={role}
+                onReviewSubmitted={() => {
+  // Do nothing - Firebase real-time listener will update automatically
+}}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Helpful message if no synthesis yet */}
+        {!session?.synthesis && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <p className="text-blue-800">
+              📊 The session leader will generate a synthesis soon. 
+              <br/>
+              <span className="text-sm">Bookmark this page and check back later to review and provide feedback.</span>
+            </p>
+          </div>
+        )}
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-6">

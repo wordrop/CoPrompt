@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from './firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
+
 // Add this helper component after imports, before the main export
 function SynthesisDisplay({ synthesis }) {
   // Parse synthesis into sections
@@ -92,6 +93,7 @@ function parseSynthesisSections(synthesis) {
 
   return sections;
 }
+
 export default function MCDashboard({ sessionId, session }) {
   const [submissions, setSubmissions] = useState([]);
   const [synthesis, setSynthesis] = useState('');
@@ -102,6 +104,11 @@ export default function MCDashboard({ sessionId, session }) {
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // NEW: Phase 1B - Revision modal state
+  const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
+  const [revisionInstructions, setRevisionInstructions] = useState('');
+  const [isRevising, setIsRevising] = useState(false);
+
   useEffect(() => {
     if (!sessionId) return;
 
@@ -110,6 +117,10 @@ export default function MCDashboard({ sessionId, session }) {
       if (doc.exists()) {
         const data = doc.data();
         setSubmissions(data.submissions || []);
+        // NEW: Also set synthesis from session if it exists
+        if (data.synthesis) {
+          setSynthesis(data.synthesis);
+        }
       }
     });
 
@@ -117,30 +128,23 @@ export default function MCDashboard({ sessionId, session }) {
   }, [sessionId]);
 
   const generateSynthesis = async () => {
-    if (submissions.length === 0) {
+    if (!submissions || submissions.length === 0) {
       setError('No submissions to synthesize yet.');
       return;
     }
-
     setIsGeneratingSynthesis(true);
     setError(null);
-
+    
     try {
-      const analyses = submissions.map(sub => ({
-        collaboratorName: sub.collaboratorName,
-        text: sub.analysis,
-      }));
-
-      console.log(`📡 Calling backend to synthesize ${analyses.length} analyses...`);
-
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/generate-synthesis`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          analyses: analyses,
+          analyses: submissions,
           topic: session.title,
+          sessionId: sessionId
         }),
       });
 
@@ -161,6 +165,54 @@ export default function MCDashboard({ sessionId, session }) {
       setError(err.message || 'Failed to generate synthesis. Please try again.');
     } finally {
       setIsGeneratingSynthesis(false);
+    }
+  };
+
+  // NEW: Phase 1B - Revise synthesis with feedback
+  const reviseSynthesis = async () => {
+    if (!session.synthesisReviews || session.synthesisReviews.length === 0) {
+      setError('No feedback to incorporate yet.');
+      return;
+    }
+
+    setIsRevising(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/revise-synthesis`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: sessionId,
+          originalSynthesis: synthesis,
+          analyses: submissions,
+          feedback: session.synthesisReviews,
+          revisionInstructions: revisionInstructions,
+          topic: session.title
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Backend error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSynthesis(data.response);
+        setIsRevisionModalOpen(false);
+        setRevisionInstructions('');
+        console.log('✅ Revised synthesis received from backend');
+      } else {
+        throw new Error(data.error || 'Failed to revise synthesis');
+      }
+    } catch (err) {
+      console.error('❌ Error revising synthesis:', err);
+      setError(err.message || 'Failed to revise synthesis. Please try again.');
+    } finally {
+      setIsRevising(false);
     }
   };
 
@@ -234,6 +286,13 @@ export default function MCDashboard({ sessionId, session }) {
     printWindow.print();
   };
 
+  // NEW: Calculate feedback summary
+  const feedbackSummary = session.synthesisReviews ? {
+    total: session.synthesisReviews.length,
+    helpful: session.synthesisReviews.filter(r => r.rating === 'thumbs_up').length,
+    needsWork: session.synthesisReviews.filter(r => r.rating === 'thumbs_down').length
+  } : { total: 0, helpful: 0, needsWork: 0 };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-6">
       <div className="max-w-6xl mx-auto">
@@ -242,8 +301,13 @@ export default function MCDashboard({ sessionId, session }) {
           <p className="text-gray-600">{session.title}</p>
           <div className="mt-4 flex items-center gap-4">
             <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
-              {submissions.length} Submissions
+              {submissions.length} submissions
             </span>
+            {session?.synthesisReviews && session.synthesisReviews.length > 0 && (
+              <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-semibold">
+                {session.synthesisReviews.length} feedback received
+              </span>
+            )}
           </div>
         </div>
 
@@ -292,12 +356,73 @@ export default function MCDashboard({ sessionId, session }) {
           </div>
 
           {synthesis ? (
-  <div>
-    {/* Parse and display synthesis in colored boxes */}
-    <SynthesisDisplay synthesis={synthesis} />
+            <div>
+              {/* Parse and display synthesis in colored boxes */}
+              <SynthesisDisplay synthesis={synthesis} />
+
+              {/* NEW: Phase 1B - Synthesis Feedback Section */}
+             {session?.synthesisReviews && session.synthesisReviews.length > 0 && (
+                <div className="mt-6 p-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border-2 border-indigo-200">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                        💬 Collaborator Feedback
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {feedbackSummary.helpful} of {feedbackSummary.total} found it helpful
+                        {feedbackSummary.helpful > 0 && ' 👍'}
+                        {feedbackSummary.needsWork > 0 && ` • ${feedbackSummary.needsWork} suggested improvements 👎`}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setIsRevisionModalOpen(true)}
+                      className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-colors font-semibold text-sm"
+                    >
+                      🔄 Revise Synthesis
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {session.synthesisReviews.map((review, index) => (
+                      <div 
+                        key={index}
+                        className={`p-4 rounded-lg border-2 ${
+                          review.rating === 'thumbs_up' 
+                            ? 'bg-green-50 border-green-200' 
+                            : 'bg-orange-50 border-orange-200'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl">
+                              {review.rating === 'thumbs_up' ? '👍' : '👎'}
+                            </span>
+                            <div>
+                              <p className="font-semibold text-gray-900">
+                                {review.collaboratorName}
+                              </p>
+                              <p className="text-xs text-gray-600">
+                                {review.role}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {new Date(review.timestamp).toLocaleString()}
+                          </span>
+                        </div>
+                        {review.comment && (
+                          <p className="text-sm text-gray-700 mt-2 pl-8">
+                            "{review.comment}"
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Download Options */}
-              <div className="flex flex-wrap gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex flex-wrap gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200 mt-6">
                 <p className="w-full text-sm font-semibold text-gray-700 mb-2">📥 Download Options:</p>
                 
                 <button
@@ -486,6 +611,123 @@ export default function MCDashboard({ sessionId, session }) {
                 className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NEW: Phase 1B - Revision Modal */}
+      {isRevisionModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          onClick={() => !isRevising && setIsRevisionModalOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold">🔄 Revise Synthesis</h2>
+                  <p className="text-purple-100 text-sm mt-1">
+                    Incorporate collaborator feedback into a new version
+                  </p>
+                </div>
+                <button
+                  onClick={() => !isRevising && setIsRevisionModalOpen(false)}
+                  disabled={isRevising}
+                  className="text-white hover:bg-white/20 rounded-full p-2 transition-colors disabled:opacity-50"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+              <div className="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                <h3 className="font-semibold text-indigo-900 mb-3">📊 Feedback Summary:</h3>
+                <div className="space-y-2 text-sm">
+                  <p className="text-gray-700">
+                    <span className="font-medium">Total feedback:</span> {feedbackSummary.total} collaborators
+                  </p>
+                  <p className="text-gray-700">
+                    <span className="font-medium text-green-700">👍 Helpful:</span> {feedbackSummary.helpful}
+                  </p>
+                  <p className="text-gray-700">
+                    <span className="font-medium text-orange-700">👎 Needs work:</span> {feedbackSummary.needsWork}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h3 className="font-semibold text-gray-900 mb-3">💬 Individual Comments:</h3>
+                <div className="space-y-3 max-h-60 overflow-y-auto">
+                  {session.synthesisReviews.map((review, index) => (
+                    <div 
+                      key={index}
+                      className={`p-3 rounded-lg text-sm ${
+                        review.rating === 'thumbs_up' 
+                          ? 'bg-green-50 border border-green-200' 
+                          : 'bg-orange-50 border border-orange-200'
+                      }`}
+                    >
+                      <p className="font-medium text-gray-900 mb-1">
+                        {review.rating === 'thumbs_up' ? '👍' : '👎'} {review.collaboratorName} ({review.role})
+                      </p>
+                      {review.comment && (
+                        <p className="text-gray-700">"{review.comment}"</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Additional Instructions (Optional):
+                </label>
+                <textarea
+                  value={revisionInstructions}
+                  onChange={(e) => setRevisionInstructions(e.target.value)}
+                  placeholder="E.g., 'Add a cost-benefit table' or 'Emphasize regulatory risks' or leave blank to just incorporate the feedback..."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                  rows={4}
+                  disabled={isRevising}
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3">
+              <button
+                onClick={() => setIsRevisionModalOpen(false)}
+                disabled={isRevising}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors text-sm font-medium disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={reviseSynthesis}
+                disabled={isRevising}
+                className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-colors text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isRevising ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Generating Revision...
+                  </span>
+                ) : (
+                  '🔄 Generate Revised Synthesis'
+                )}
               </button>
             </div>
           </div>

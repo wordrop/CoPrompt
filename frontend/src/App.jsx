@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from './firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
 import CollaboratorRoom from './CollaboratorRoom';
 import MCDashboard from './MCDashboard';
 
@@ -101,6 +101,39 @@ function App() {
       addCustomRole();
     }
   };
+// Load session from URL on page load
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const urlSessionId = params.get('session');
+  const urlRole = params.get('role');
+
+  if (urlSessionId && urlRole) {
+    // Collaborator view
+    setSessionId(urlSessionId);
+    setMode('collaborator');
+  } else if (urlSessionId) {
+    // MC view - load session from Firebase
+    setSessionId(urlSessionId);
+    const loadSession = async () => {
+      try {
+        const sessionRef = doc(db, 'sessions', urlSessionId);
+        const sessionSnap = await getDoc(sessionRef);
+        
+        if (sessionSnap.exists()) {
+          setSession(sessionSnap.data());
+          setMode('mc-dashboard');
+        } else {
+          console.error('Session not found');
+          alert('Session not found');
+        }
+      } catch (error) {
+        console.error('Error loading session:', error);
+        alert('Failed to load session');
+      }
+    };
+    loadSession();
+  }
+}, []);
   const generateAIAnalysis = async () => {
     setIsGenerating(true);
     setError(null);
@@ -206,6 +239,8 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
 
       // Switch to dashboard view
       setMode('mc-dashboard');
+      // Update URL with session ID
+      window.history.pushState({}, '', `?session=${newSessionId}`);
     } catch (error) {
       console.error('Session creation error:', error);
       alert('Failed to create session');
