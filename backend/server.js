@@ -1,13 +1,30 @@
 // CoPrompt Backend - API Proxy Server
 import express from 'express';
 import cors from 'cors';
-import Anthropic from '@anthropic-ai/sdk';
 import dotenv from 'dotenv';
+import Anthropic from '@anthropic-ai/sdk';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, doc, getDoc, updateDoc, setDoc, arrayUnion } from 'firebase/firestore';
 
 dotenv.config({ path: '../.env' });
 
+const firebaseConfig = {
+  apiKey: "AIzaSyADIXDmVZfLNH-SrS6P7tX7GkD7-_pzLZg",
+  authDomain: "coprompt-70087.firebaseapp.com",
+  projectId: "coprompt-70087",
+  storageBucket: "coprompt-70087.firebasestorage.app",
+  messagingSenderId: "116471520583",
+  appId: "1:116471520583:web:d8da2a279ba0ac30948062"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// DEBUG: Check if API key is loaded
+console.log('================================');
 // DEBUG: Check if API key is loaded
 console.log('================================');
 console.log('🔍 DEBUG INFO:');
@@ -62,6 +79,30 @@ app.post('/api/claude', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to call Claude API',
+    });
+  }
+});
+// Save session to Firebase
+app.post('/api/save-session', async (req, res) => {
+  try {
+    const { sessionId, sessionData } = req.body;
+    
+    console.log('💾 Saving session to Firebase:', sessionId);
+    
+    const sessionRef = doc(db, 'sessions', sessionId);
+    await setDoc(sessionRef, {
+      ...sessionData,
+      createdAt: new Date().toISOString()
+    });
+    
+    console.log('✅ Session saved successfully');
+    
+    res.json({ success: true, sessionId });
+  } catch (error) {
+    console.error('❌ Error saving session:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
     });
   }
 });
@@ -148,12 +189,12 @@ app.post('/api/generate-collaborator-analysis', async (req, res) => {
 // Endpoint for MC synthesis generation
 app.post('/api/generate-synthesis', async (req, res) => {
   try {
-    const { analyses, topic } = req.body;
+    const { analyses, topic, sessionId } = req.body;
 
     if (!analyses || !Array.isArray(analyses) || analyses.length === 0) {
       return res.status(400).json({ error: 'Analyses array is required' });
     }
-
+    const sessionRef = doc(db, 'sessions', sessionId);
     console.log(`🔄 Generating synthesis from ${analyses.length} analyses...`);
 
     // Build the synthesis prompt
@@ -168,7 +209,7 @@ EXPERT CONTRIBUTIONS:
 `;
     
     analyses.forEach((analysis, index) => {
-      synthesisPrompt += `\n[${analysis.collaboratorName}]:\n${analysis.text}\n`;
+      synthesisPrompt += `\n[${analysis.collaboratorName}]:\n${analysis.analysis}\n`;
     });
 
     synthesisPrompt += `
@@ -231,23 +272,166 @@ TIMELINE CONSIDERATIONS:
 Aim for 800-1000 words total. Use the section structure exactly as shown. Be thorough in each section - this is a strategic decision that deserves comprehensive synthesis.`;
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1800,
-      system: 'You are an expert at synthesizing multiple perspectives into coherent insights.',
-      messages: [{ role: 'user', content: synthesisPrompt }],
+  model: 'claude-sonnet-4-20250514',
+  max_tokens: 5000,  // Changed from 1800 for comprehensive synthesis
+  system: 'You are an expert at synthesizing multiple perspectives into coherent insights.',
+  messages: [{ role: 'user', content: synthesisPrompt }],
+});
+// NEW: Phase 1B - Revise synthesis with feedback
+app.post('/api/revise-synthesis', async (req, res) => {
+  try {
+    const { sessionId, originalSynthesis, analyses, feedback, revisionInstructions, topic } = req.body;
+
+    console.log('📝 Revising synthesis for session:', sessionId);
+    console.log('📊 Feedback items:', feedback.length);
+
+    // Get session to check version history
+    const sessionRef = doc(db, 'sessions', sessionId);
+    const sessionDoc = await getDoc(sessionRef);
+    const sessionData = sessionDoc.data();
+    const currentVersion = sessionData.synthesisVersion || 1;
+    const newVersion = currentVersion + 1;
+
+    // Check if we've hit the 3-version limit
+    if (newVersion > 3) {
+      return res.status(400).json({
+        success: false,
+        error: 'Maximum of 3 synthesis versions reached. Time to make a decision! 🎯'
+      });
+    }
+
+    // Format feedback for the prompt
+    const feedbackSummary = feedback.map(f => 
+      `${f.collaboratorName} (${f.role}): ${f.rating === 'thumbs_up' ? '👍 Helpful' : '👎 Needs Work'}
+Comment: ${f.comment || 'No comment'}`
+    ).join('\n\n');
+
+    // Format analyses for context
+    const analysesText = analyses.map(a => 
+      `${a.collaboratorName} (${a.role || 'Collaborator'}):\n${a.analysis}`
+    ).join('\n\n---\n\n');
+
+    // Build the revision prompt
+    const revisionPrompt = `You are synthesizing strategic analyses for a decision-maker.
+
+ORIGINAL SYNTHESIS (Version ${currentVersion}):
+${originalSynthesis}
+
+COLLABORATOR FEEDBACK ON VERSION ${currentVersion}:
+${feedbackSummary}
+
+${revisionInstructions ? `ADDITIONAL INSTRUCTIONS FROM MC:\n${revisionInstructions}\n\n` : ''}
+
+ORIGINAL ANALYSES FOR REFERENCE:
+${analysesText}
+
+TASK: Generate an improved synthesis (Version ${newVersion}) that addresses the feedback while maintaining the four-section structure:
+
+🤝 AREAS OF AGREEMENT
+⚔️ AREAS OF CONFLICT  
+⚠️ CRITICAL POINTS & RED FLAGS
+📊 EXECUTIVE SUMMARY & RECOMMENDATION
+
+Requirements:
+1. Address specific concerns raised in feedback
+2. Maintain balanced perspective from all viewpoints
+3. If feedback mentioned missing information, incorporate it
+4. If feedback mentioned format issues, fix them
+5. Keep the same section structure with emojis
+6. Be concise but comprehensive
+
+Generate the REVISED synthesis now:`;
+
+    console.log('🤖 Calling Claude API for synthesis revision...');
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 5000,
+        messages: [{
+          role: 'user',
+          content: revisionPrompt
+        }]
+      })
     });
 
-    const responseText = message.content[0].text;
-    console.log(`✅ Synthesis generated (${message.usage.output_tokens} tokens)`);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Claude API error: ${response.status} - ${JSON.stringify(errorData)}`);
+    }
+
+    const data = await response.json();
+    const revisedSynthesis = data.content[0].text;
+
+    // Prepare version history entry
+    const versionHistoryEntry = {
+      version: currentVersion,
+      synthesis: originalSynthesis,
+      feedback: feedback,
+      revisedAt: new Date().toISOString()
+    };
+
+    // Update session in Firebase
+    const updateData = {
+      synthesis: revisedSynthesis,
+      synthesisGeneratedAt: new Date().toISOString(),
+      synthesisVersion: newVersion,
+      synthesisReviews: [], // Clear current reviews for fresh round
+      versionHistory: [...(sessionData.versionHistory || []), versionHistoryEntry].slice(-3) // Keep last 3
+    };
+
+    await updateDoc(sessionRef, updateData);
+
+    console.log(`✅ Synthesis revised! Version ${currentVersion} → ${newVersion}`);
+    console.log(`📚 Version history entries: ${updateData.versionHistory.length}`);
+
+    // Show warning if approaching limit
+    const warningMessage = newVersion === 2 
+      ? '💡 First revision complete. Consider finalizing to avoid decision paralysis.'
+      : newVersion === 3
+      ? '⚠️ Final revision complete. This is version 3/3 - time to decide!'
+      : null;
 
     res.json({
       success: true,
-      response: responseText,
-      usage: {
-        inputTokens: message.usage.input_tokens,
-        outputTokens: message.usage.output_tokens,
-      },
+      response: revisedSynthesis,
+      version: newVersion,
+      warning: warningMessage
     });
+
+  } catch (error) {
+    console.error('❌ Error revising synthesis:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to revise synthesis'
+    });
+  }
+});
+const responseText = message.content[0].text;
+console.log(`✅ Synthesis generated (${message.usage.output_tokens} tokens)`);
+
+// SAVE TO FIREBASE (ADD THIS!)
+console.log('💾 Saving synthesis to Firebase...');
+await updateDoc(sessionRef, {
+  synthesis: responseText,
+  synthesisGeneratedAt: new Date().toISOString()
+});
+console.log('✅ Synthesis saved to Firebase');
+
+res.json({
+  success: true,
+  response: responseText,
+  usage: {
+    inputTokens: message.usage.input_tokens,
+    outputTokens: message.usage.output_tokens,
+  },
+});
   } catch (error) {
     console.error('❌ Synthesis Error:', error);
     res.status(500).json({
@@ -256,6 +440,7 @@ Aim for 800-1000 words total. Use the section structure exactly as shown. Be tho
     });
   }
 });
+
 app.listen(PORT, () => {
   console.log(`🚀 CoPrompt Backend running on http://localhost:${PORT}`);
   console.log(`📡 API endpoint: http://localhost:${PORT}/api/claude`);
