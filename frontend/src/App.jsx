@@ -3,8 +3,14 @@ import { db } from './firebase';
 import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
 import CollaboratorRoom from './CollaboratorRoom';
 import MCDashboard from './MCDashboard';
+import RestaurantPlanner from './RestaurantPlanner';
 
 function App() {
+// Check if this is restaurant mode
+  if (window.location.pathname === '/restaurant') {
+    return <RestaurantPlanner />;
+  }
+  
   const [mode, setMode] = useState('mc-create'); // 'mc-create', 'mc-dashboard', 'collaborator'
   const [sessionId, setSessionId] = useState(null);
   const [session, setSession] = useState(null);
