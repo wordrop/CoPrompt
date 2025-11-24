@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { db } from './firebase';
+import { db, storage } from './firebase';
 import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import CollaboratorRoom from './CollaboratorRoom';
 import MCDashboard from './MCDashboard';
 import RestaurantPlanner from './RestaurantPlanner';
@@ -30,6 +31,8 @@ function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [error, setError] = useState(null);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
 
   const roleOptions = [
     'Project Lead',
@@ -140,6 +143,66 @@ useEffect(() => {
     loadSession();
   }
 }, []);
+const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    
+    if (files.length === 0) return;
+    
+    // Validate file types
+    const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
+    const invalidFiles = files.filter(file => !allowedTypes.includes(file.type));
+    
+    if (invalidFiles.length > 0) {
+      alert('Only PDF and DOCX files are allowed');
+      return;
+    }
+    
+    // Validate file size (max 10MB per file)
+    const oversizedFiles = files.filter(file => file.size > 10 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      alert('Files must be under 10MB each');
+      return;
+    }
+    
+    setIsUploadingFiles(true);
+    
+    try {
+      const uploadedFileData = [];
+      
+      for (const file of files) {
+        // Create unique filename
+        const timestamp = Date.now();
+        const fileName = `${timestamp}_${file.name}`;
+        const storageRef = ref(storage, `session-documents/${fileName}`);
+        
+        // Upload file
+        await uploadBytes(storageRef, file);
+        
+        // Get download URL
+        const downloadURL = await getDownloadURL(storageRef);
+        
+        uploadedFileData.push({
+          name: file.name,
+          url: downloadURL,
+          type: file.type,
+          size: file.size,
+          uploadedAt: new Date().toISOString()
+        });
+      }
+      
+      setUploadedFiles([...uploadedFiles, ...uploadedFileData]);
+      alert(`Successfully uploaded ${files.length} file(s)!`);
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload files. Please try again.');
+    } finally {
+      setIsUploadingFiles(false);
+    }
+  };
+
+  const removeFile = (index) => {
+    setUploadedFiles(uploadedFiles.filter((_, i) => i !== index));
+  };
   const generateAIAnalysis = async () => {
     setIsGenerating(true);
     setError(null);
@@ -178,6 +241,7 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
         body: JSON.stringify({
           prompt: prompt,
           topic: title,
+          uploadedDocuments: uploadedFiles,
         }),
       });
 
@@ -223,7 +287,8 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
         mcName,
         mcEmail,
         mcRole: finalRole,
-        selectedRoles: [...selectedRoles, ...customRoles],  // CHANGED: Combine both types
+        selectedRoles: [...selectedRoles, ...customRoles],
+        uploadedDocuments: uploadedFiles,
         createdAt: new Date().toISOString(),
         submissions: [],
         synthesis: ''
@@ -272,6 +337,8 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
     setCustomRoles([]);        // NEW
     setCustomRoleInput('');    // NEW
     setCustomRoleError('');    // NEW
+    setUploadedFiles([]);
+    setIsUploadingFiles(false);    
     setAiAnalysis('');
     setInviteLinks({});
     setError(null);
@@ -483,6 +550,77 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
               rows={6}
               className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
+          </div>
+{/* Document Upload Section */}
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-slate-200 mb-2">
+              Upload Documents (Optional)
+            </label>
+            <p className="text-xs text-slate-400 mb-3 italic">
+              Add PDFs or DOCX files (resumes, job descriptions, RFPs, etc.). Max 10MB per file.
+              <br/>
+              <span className="text-yellow-400">💡 Tip: DOCX files work best. Scanned/image PDFs may not extract properly.</span>
+            </p>
+            
+            <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 bg-slate-700/30 hover:border-purple-500 transition-colors">
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.docx,.doc"
+                onChange={handleFileUpload}
+                disabled={isUploadingFiles}
+                className="hidden"
+                id="file-upload"
+              />
+              <label
+                htmlFor="file-upload"
+                className={`flex flex-col items-center justify-center cursor-pointer ${
+                  isUploadingFiles ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                <div className="text-5xl mb-3">📄</div>
+                <p className="text-slate-300 font-medium mb-1">
+                  {isUploadingFiles ? 'Uploading...' : 'Click to upload documents'}
+                </p>
+                <p className="text-xs text-slate-400">
+                  PDF or DOCX files only
+                </p>
+              </label>
+            </div>
+
+            {/* Uploaded Files List */}
+            {uploadedFiles.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <p className="text-sm font-semibold text-slate-200">
+                  Uploaded Files ({uploadedFiles.length}):
+                </p>
+                {uploadedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-slate-700 rounded-lg border border-slate-600"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">
+                        {file.type === 'application/pdf' ? '📕' : '📘'}
+                      </span>
+                      <div>
+                        <p className="text-sm text-white font-medium">{file.name}</p>
+                        <p className="text-xs text-slate-400">
+                          {(file.size / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => removeFile(index)}
+                      className="text-red-400 hover:text-red-300 transition-colors text-xl font-bold"
+                      title="Remove file"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Live Mode Info */}

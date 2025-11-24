@@ -193,6 +193,7 @@ STRICT LIMIT: 150-200 words maximum. Be ruthlessly concise.`;
           topic: session.title,
           mcAnalysis: session.aiAnalysis,
           context: session.context,
+          uploadedDocuments: session.uploadedDocuments || [],
         }),
       });
 
@@ -421,6 +422,41 @@ if (hasSubmitted) {
             </div>
           )}
         </div>
+{/* Uploaded Documents Section */}
+        {session.uploadedDocuments && session.uploadedDocuments.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-3">
+              📄 Uploaded Documents
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Review these documents before providing your analysis
+            </p>
+            <div className="space-y-3">
+              {session.uploadedDocuments.map((doc, index) => (
+                <a
+                  key={index}
+                  href={doc.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">
+                      {doc.type === 'application/pdf' ? '📕' : '📘'}
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{doc.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {(doc.size / 1024).toFixed(1)} KB • Click to view
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-blue-600 text-xl">↗</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Collaborator Input */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">

@@ -329,7 +329,40 @@ export default function MCDashboard({ sessionId, session }) {
               <p className="text-sm text-gray-700 whitespace-pre-wrap">{session.aiAnalysis}</p>
             </div>
           )}
-        </div>
+</div>
+
+        {/* Uploaded Documents Section */}
+        {session.uploadedDocuments && session.uploadedDocuments.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-3">
+              📄 Uploaded Documents
+            </h2>
+            <div className="space-y-3">
+              {session.uploadedDocuments.map((doc, index) => (
+                <a
+                  key={index}
+                  href={doc.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-4 bg-purple-50 rounded-lg border border-purple-200 hover:bg-purple-100 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">
+                      {doc.type === 'application/pdf' ? '📕' : '📘'}
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{doc.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {(doc.size / 1024).toFixed(1)} KB • Click to view
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-purple-600 text-xl">↗</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
