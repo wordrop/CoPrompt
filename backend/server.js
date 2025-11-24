@@ -5,7 +5,11 @@ import dotenv from 'dotenv';
 import Anthropic from '@anthropic-ai/sdk';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, getDoc, updateDoc, setDoc, arrayUnion } from 'firebase/firestore';
-
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse');
+import mammoth from 'mammoth';
+import fetch from 'node-fetch';
 dotenv.config({ path: '../.env' });
 
 const firebaseConfig = {
@@ -40,7 +44,51 @@ const anthropic = new Anthropic({
 
 app.use(cors());
 app.use(express.json());
+// Helper function to extract text from documents
+async function extractTextFromDocuments(documentUrls) {
+  if (!documentUrls || documentUrls.length === 0) {
+    return '';
+  }
 
+  console.log(`📄 Extracting text from ${documentUrls.length} document(s)...`);
+  
+  const extractedTexts = [];
+
+  for (const docData of documentUrls) {
+    try {
+      console.log(`📥 Fetching: ${docData.name}`);
+      
+      // Fetch the document
+      const response = await fetch(docData.url);
+      const buffer = await response.arrayBuffer();
+      const nodeBuffer = Buffer.from(buffer);
+
+      let text = '';
+
+      if (docData.type === 'application/pdf') {
+        // Extract from PDF
+        const pdfData = await pdfParse(nodeBuffer);
+        text = pdfData.text;
+        console.log(`✅ PDF extracted: ${text.length} characters`);
+      } else if (docData.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+                 docData.type === 'application/msword') {
+        // Extract from DOCX
+        const result = await mammoth.extractRawText({ buffer: nodeBuffer });
+        text = result.value;
+        console.log(`✅ DOCX extracted: ${text.length} characters`);
+      }
+
+      if (text.trim()) {
+        extractedTexts.push(`\n--- DOCUMENT: ${docData.name} ---\n${text}\n--- END DOCUMENT ---\n`);
+      }
+    } catch (error) {
+      console.error(`❌ Error extracting ${docData.name}:`, error.message);
+      extractedTexts.push(`\n[Could not extract text from: ${docData.name}]\n`);
+    }
+  }
+
+  return extractedTexts.join('\n');
+}
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'CoPrompt API Server Running' });
 });
@@ -109,7 +157,7 @@ app.post('/api/save-session', async (req, res) => {
 // Endpoint for MC's initial analysis generation
 app.post('/api/generate-analysis', async (req, res) => {
   try {
-    const { prompt, topic } = req.body;
+    const { prompt, topic, uploadedDocuments } = req.body;
 
     if (!prompt || !topic) {
       return res.status(400).json({ error: 'Prompt and topic are required' });
@@ -117,11 +165,22 @@ app.post('/api/generate-analysis', async (req, res) => {
 
     console.log('📊 Generating MC analysis...');
 
+    // Extract document text if documents exist
+    let documentContext = '';
+    if (uploadedDocuments && uploadedDocuments.length > 0) {
+      documentContext = await extractTextFromDocuments(uploadedDocuments);
+    }
+
+    // Build prompt with document context
+    const fullPrompt = documentContext 
+      ? `${prompt}\n\n=== UPLOADED DOCUMENTS ===\n${documentContext}\n\nPlease analyze the above context including the uploaded documents.`
+      : prompt;
+
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 2000,
       system: 'You are an expert analyst helping to facilitate collaborative research.',
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content: fullPrompt }],
     });
 
     const responseText = message.content[0].text;
