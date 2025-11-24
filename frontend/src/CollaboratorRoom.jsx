@@ -113,6 +113,7 @@ export default function CollaboratorRoom({ sessionId }) {
   const [customPrompt, setCustomPrompt] = useState('');
   const [analysis, setAnalysis] = useState('');
   const [hasReviewed, setHasReviewed] = useState(false);
+  const [showMyAnalysis, setShowMyAnalysis] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [iterations, setIterations] = useState([]);
@@ -300,7 +301,43 @@ if (hasSubmitted) {
           </p>
         </div>
 
-        {/* Synthesis Review Section */}
+{/* Your Submitted Analysis - Collapsible */}
+        <div className="bg-blue-50 rounded-lg shadow-md p-6 border-2 border-blue-200">
+          <button
+            onClick={() => setShowMyAnalysis(!showMyAnalysis)}
+            className="w-full flex items-center justify-between text-left hover:bg-blue-100 p-2 rounded transition-colors"
+          >
+            <h3 className="text-lg font-bold text-blue-900">
+              {showMyAnalysis ? '▼' : '▶'} Your Submitted Analysis ({role})
+            </h3>
+            <span className="text-sm text-blue-600 font-semibold">
+              {showMyAnalysis ? 'Hide' : 'Show'}
+            </span>
+          </button>
+          
+          {showMyAnalysis && (
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between text-xs text-gray-600 bg-white px-3 py-2 rounded">
+                <span>Submitted by: <strong>{collaboratorName}</strong></span>
+                <span>{new Date(session.submissions?.find(sub => sub.role === role)?.submittedAt).toLocaleString()}</span>
+              </div>
+              
+              <div className="p-4 bg-white rounded-lg border border-blue-200 max-h-64 overflow-y-auto">
+                <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
+                  {session.submissions?.find(sub => sub.role === role)?.analysis || analysis}
+                </p>
+              </div>
+              
+              {customPrompt && (
+                <div className="p-3 bg-blue-100 rounded border border-blue-300">
+                  <p className="text-xs font-semibold text-blue-900 mb-1">Your Custom Focus:</p>
+                  <p className="text-xs text-blue-800">{customPrompt}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>        
+{/* Synthesis Review Section */}
         {session?.synthesis && (
           <div className="bg-white rounded-lg shadow-xl p-6">
             <h3 className="text-xl font-bold text-gray-900 mb-4">

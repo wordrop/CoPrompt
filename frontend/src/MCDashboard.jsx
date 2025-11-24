@@ -98,6 +98,7 @@ export default function MCDashboard({ sessionId, session }) {
   const [submissions, setSubmissions] = useState([]);
   const [synthesis, setSynthesis] = useState('');
   const [isGeneratingSynthesis, setIsGeneratingSynthesis] = useState(false);
+  const [synthesisReviews, setSynthesisReviews] = useState([]);
   const [error, setError] = useState(null);
   
   // Modal state for viewing full analysis
@@ -117,6 +118,7 @@ export default function MCDashboard({ sessionId, session }) {
       if (doc.exists()) {
         const data = doc.data();
         setSubmissions(data.submissions || []);
+        setSynthesisReviews(data.synthesisReviews || []);
         // NEW: Also set synthesis from session if it exists
         if (data.synthesis) {
           setSynthesis(data.synthesis);
@@ -170,7 +172,7 @@ export default function MCDashboard({ sessionId, session }) {
 
   // NEW: Phase 1B - Revise synthesis with feedback
   const reviseSynthesis = async () => {
-    if (!session.synthesisReviews || session.synthesisReviews.length === 0) {
+    if (!synthesisReviews || synthesisReviews.length === 0) {
       setError('No feedback to incorporate yet.');
       return;
     }
@@ -188,7 +190,7 @@ export default function MCDashboard({ sessionId, session }) {
           sessionId: sessionId,
           originalSynthesis: synthesis,
           analyses: submissions,
-          feedback: session.synthesisReviews,
+          feedback: synthesisReviews,
           revisionInstructions: revisionInstructions,
           topic: session.title
         }),
@@ -287,14 +289,14 @@ export default function MCDashboard({ sessionId, session }) {
   };
 
   // NEW: Calculate feedback summary
-  const feedbackSummary = session.synthesisReviews ? {
-    total: session.synthesisReviews.length,
-    helpful: session.synthesisReviews.filter(r => r.rating === 'thumbs_up').length,
-    needsWork: session.synthesisReviews.filter(r => r.rating === 'thumbs_down').length
-  } : { total: 0, helpful: 0, needsWork: 0 };
+  const feedbackSummary = {
+    total: synthesisReviews.length,
+    helpful: synthesisReviews.filter(r => r.rating === 'thumbs_up').length,
+    needsWork: synthesisReviews.filter(r => r.rating === 'thumbs_down').length
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-6">;
       <div className="max-w-6xl mx-auto">
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">{session.mcName}'s Dashboard</h1>
@@ -303,9 +305,9 @@ export default function MCDashboard({ sessionId, session }) {
             <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
               {submissions.length} submissions
             </span>
-            {session?.synthesisReviews && session.synthesisReviews.length > 0 && (
+            {synthesisReviews.length > 0 && (
               <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-semibold">
-                {session.synthesisReviews.length} feedback received
+                {synthesisReviews.length} feedback received
               </span>
             )}
           </div>
@@ -361,7 +363,7 @@ export default function MCDashboard({ sessionId, session }) {
               <SynthesisDisplay synthesis={synthesis} />
 
               {/* NEW: Phase 1B - Synthesis Feedback Section */}
-             {session?.synthesisReviews && session.synthesisReviews.length > 0 && (
+             {synthesisReviews.length > 0 && (
                 <div className="mt-6 p-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border-2 border-indigo-200">
                   <div className="flex justify-between items-start mb-4">
                     <div>
@@ -383,7 +385,7 @@ export default function MCDashboard({ sessionId, session }) {
                   </div>
 
                   <div className="space-y-3">
-                    {session.synthesisReviews.map((review, index) => (
+                    {synthesisReviews.map((review, index) => (
                       <div 
                         key={index}
                         className={`p-4 rounded-lg border-2 ${
@@ -668,7 +670,7 @@ export default function MCDashboard({ sessionId, session }) {
               <div className="mb-6">
                 <h3 className="font-semibold text-gray-900 mb-3">💬 Individual Comments:</h3>
                 <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {session.synthesisReviews.map((review, index) => (
+                  {synthesisReviews.map((review, index) => (
                     <div 
                       key={index}
                       className={`p-3 rounded-lg text-sm ${
