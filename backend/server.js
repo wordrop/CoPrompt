@@ -10,15 +10,15 @@ const require = createRequire(import.meta.url);
 const pdfParse = require('pdf-parse');
 import mammoth from 'mammoth';
 import fetch from 'node-fetch';
-dotenv.config({ path: '../.env' });
+dotenv.config();
 
 const firebaseConfig = {
-  apiKey: "AIzaSyADIXDmVZfLNH-SrS6P7tX7GkD7-_pzLZg",
-  authDomain: "coprompt-70087.firebaseapp.com",
-  projectId: "coprompt-70087",
-  storageBucket: "coprompt-70087.firebasestorage.app",
-  messagingSenderId: "116471520583",
-  appId: "1:116471520583:web:d8da2a279ba0ac30948062"
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
