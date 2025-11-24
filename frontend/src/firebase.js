@@ -5,12 +5,12 @@ import { getStorage } from 'firebase/storage';
 
 // Replace this with YOUR config from Firebase Console
 const firebaseConfig = {
-  apiKey: "AIzaSyADIXDmVZfLNH-SrS6P7tX7GkD7-_pzLZg",
-  authDomain: "coprompt-70087.firebaseapp.com",
-  projectId: "coprompt-70087",
-  storageBucket: "coprompt-70087.firebasestorage.app",
-  messagingSenderId: "116471520583",
-  appId: "1:116471520583:web:d8da2a279ba0ac30948062"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // Initialize Firebase
