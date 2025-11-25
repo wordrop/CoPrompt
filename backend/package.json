@@ -16,7 +16,8 @@
     "firebase": "^12.6.0",
     "mammoth": "^1.11.0",
     "node-fetch": "^3.3.2",
-    "pdf-parse": "^2.4.5"
+    "pdf-parse": "^2.4.5",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

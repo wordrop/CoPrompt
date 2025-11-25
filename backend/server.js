@@ -9,6 +9,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const pdfParse = require('pdf-parse');
 import mammoth from 'mammoth';
+import XLSX from 'xlsx';
 import fetch from 'node-fetch';
 dotenv.config();
 
@@ -76,6 +77,25 @@ async function extractTextFromDocuments(documentUrls) {
         const result = await mammoth.extractRawText({ buffer: nodeBuffer });
         text = result.value;
         console.log(`✅ DOCX extracted: ${text.length} characters`);
+      } else if (docData.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+                 docData.type === 'application/vnd.ms-excel') {
+        // Extract from Excel
+        const workbook = XLSX.read(nodeBuffer, { type: 'buffer' });
+        const sheets = [];
+        
+        workbook.SheetNames.forEach(sheetName => {
+          const worksheet = workbook.Sheets[sheetName];
+          const sheetText = XLSX.utils.sheet_to_csv(worksheet, { FS: '\t' });
+          // Clean the text: remove excessive whitespace and special characters
+          const cleanedText = sheetText
+            .replace(/\t+/g, ' | ')  // Replace tabs with pipes
+            .replace(/\n\n+/g, '\n')  // Remove multiple newlines
+            .trim();
+          sheets.push(`\n--- Sheet: ${sheetName} ---\n${cleanedText}`);
+        });
+        
+        text = sheets.join('\n');
+        console.log(`✅ Excel extracted: ${text.length} characters from ${workbook.SheetNames.length} sheet(s)`);
       }
 
       if (text.trim()) {
@@ -202,11 +222,10 @@ app.post('/api/generate-analysis', async (req, res) => {
     });
   }
 });
-
 // Endpoint for collaborator custom analysis
 app.post('/api/generate-collaborator-analysis', async (req, res) => {
   try {
-    const { prompt, customPrompt, topic } = req.body;
+    const { prompt, customPrompt, topic, mcAnalysis, context, uploadedDocuments } = req.body;
 
     if (!prompt || !topic) {
       return res.status(400).json({ error: 'Prompt and topic are required' });
@@ -214,9 +233,15 @@ app.post('/api/generate-collaborator-analysis', async (req, res) => {
 
     console.log('👥 Generating collaborator analysis...');
 
+    // Extract document text if documents exist
+    let documentContext = '';
+    if (uploadedDocuments && uploadedDocuments.length > 0) {
+      documentContext = await extractTextFromDocuments(uploadedDocuments);
+    }
+
     const fullPrompt = customPrompt 
-      ? `${customPrompt}\n\nTopic to analyze: ${topic}\n\nAdditional context: ${prompt}`
-      : prompt;
+      ? `${customPrompt}\n\nTopic to analyze: ${topic}\n\nAdditional context: ${prompt}${documentContext ? `\n\n=== UPLOADED DOCUMENTS ===\n${documentContext}` : ''}`
+      : `${prompt}${documentContext ? `\n\n=== UPLOADED DOCUMENTS ===\n${documentContext}` : ''}`;
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
