@@ -149,7 +149,13 @@ const handleFileUpload = async (e) => {
     if (files.length === 0) return;
     
     // Validate file types
-    const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
+    ];
     const invalidFiles = files.filter(file => !allowedTypes.includes(file.type));
     
     if (invalidFiles.length > 0) {
@@ -559,14 +565,14 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
             <p className="text-xs text-slate-400 mb-3 italic">
               Add PDFs or DOCX files (resumes, job descriptions, RFPs, etc.). Max 10MB per file.
               <br/>
-              <span className="text-yellow-400">💡 Tip: DOCX files work best. Scanned/image PDFs may not extract properly.</span>
+              <span className="text-yellow-400">💡 Tip: DOCX and XLSX files work best. Scanned/image PDFs may not extract properly.</span>
             </p>
             
             <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 bg-slate-700/30 hover:border-purple-500 transition-colors">
               <input
                 type="file"
                 multiple
-                accept=".pdf,.docx,.doc"
+                accept=".pdf,.docx,.doc,.xlsx,.xls"
                 onChange={handleFileUpload}
                 disabled={isUploadingFiles}
                 className="hidden"
@@ -601,7 +607,8 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">
-                        {file.type === 'application/pdf' ? '📕' : '📘'}
+                        {file.type === 'application/pdf' ? '📕' : 
+                         file.type.includes('spreadsheet') || file.type.includes('excel') ? '📊' : '📘'}
                       </span>
                       <div>
                         <p className="text-sm text-white font-medium">{file.name}</p>

@@ -553,6 +553,15 @@ export default function MCDashboard({ sessionId, session }) {
                   </p>
                 </div>
 
+		{/* Collaborator Uploaded Documents Indicator */}
+                {submission.uploadedDocuments && submission.uploadedDocuments.length > 0 && (
+                  <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <p className="text-xs font-semibold text-green-800">
+                      📎 {submission.uploadedDocuments.length} supporting document{submission.uploadedDocuments.length > 1 ? 's' : ''} uploaded
+                    </p>
+                  </div>
+                )}
+
                 <div className="mt-3 flex items-center justify-between">
                   <p className="text-xs text-gray-400">
                     Submitted: {new Date(submission.submittedAt).toLocaleString()}
@@ -620,7 +629,37 @@ export default function MCDashboard({ sessionId, session }) {
                   </p>
                 </div>
               </div>
-
+{/* Collaborator's Uploaded Documents */}
+              {selectedSubmission.uploadedDocuments && selectedSubmission.uploadedDocuments.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Supporting Documents:</h3>
+                  <div className="space-y-2">
+                    {selectedSubmission.uploadedDocuments.map((doc, index) => (
+                      <a
+                        key={index}
+                        href={doc.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">
+                            {doc.type === 'application/pdf' ? '📕' : 
+                             doc.type.includes('spreadsheet') || doc.type.includes('excel') ? '📊' : '📘'}
+                          </span>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{doc.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {(doc.size / 1024).toFixed(1)} KB • Click to view
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-green-600 text-xl">↗</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
               {selectedSubmission.iterations && selectedSubmission.iterations.length > 1 && (
                 <div className="pt-4 border-t border-gray-200">
                   <p className="text-sm text-gray-600">

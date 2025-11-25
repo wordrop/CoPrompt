@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, updateDoc, arrayUnion, onSnapshot } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, storage } from './firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // Add this component after imports, before the main CollaboratorRoom export
 function SynthesisReviewForm({ sessionId, collaboratorName, collaboratorRole, onReviewSubmitted }) {
@@ -116,6 +117,8 @@ export default function CollaboratorRoom({ sessionId }) {
   const [showMyAnalysis, setShowMyAnalysis] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const [iterations, setIterations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -154,7 +157,72 @@ export default function CollaboratorRoom({ sessionId }) {
   // Cleanup listener when component unmounts
   return () => unsubscribe();
 }, [sessionId]);
+const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    
+    if (files.length === 0) return;
+    
+    // Validate file types
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
+    ];
+    const invalidFiles = files.filter(file => !allowedTypes.includes(file.type));
+    
+    if (invalidFiles.length > 0) {
+      alert('Only PDF and DOCX files are allowed');
+      return;
+    }
+    
+    // Validate file size (max 10MB per file)
+    const oversizedFiles = files.filter(file => file.size > 10 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      alert('Files must be under 10MB each');
+      return;
+    }
+    
+    setIsUploadingFiles(true);
+    
+    try {
+      const uploadedFileData = [];
+      
+      for (const file of files) {
+        // Create unique filename
+        const timestamp = Date.now();
+        const fileName = `${timestamp}_${file.name}`;
+        const storageRef = ref(storage, `session-documents/${fileName}`);
+        
+        // Upload file
+        await uploadBytes(storageRef, file);
+        
+        // Get download URL
+        const downloadURL = await getDownloadURL(storageRef);
+        
+        uploadedFileData.push({
+          name: file.name,
+          url: downloadURL,
+          type: file.type,
+          size: file.size,
+          uploadedAt: new Date().toISOString()
+        });
+      }
+      
+      setUploadedFiles([...uploadedFiles, ...uploadedFileData]);
+      alert(`Successfully uploaded ${files.length} file(s)!`);
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload files. Please try again.');
+    } finally {
+      setIsUploadingFiles(false);
+    }
+  };
 
+  const removeFile = (index) => {
+    setUploadedFiles(uploadedFiles.filter((_, i) => i !== index));
+  };
   const generateAnalysis = async () => {
     setIsGenerating(true);
     setError(null);
@@ -193,7 +261,7 @@ STRICT LIMIT: 150-200 words maximum. Be ruthlessly concise.`;
           topic: session.title,
           mcAnalysis: session.aiAnalysis,
           context: session.context,
-          uploadedDocuments: session.uploadedDocuments || [],
+	  uploadedDocuments: [...(session.uploadedDocuments || []), ...uploadedFiles],
         }),
       });
 
@@ -245,6 +313,7 @@ STRICT LIMIT: 150-200 words maximum. Be ruthlessly concise.`;
         customPrompt: customPrompt.trim(),
         analysis,
         iterations,
+        uploadedDocuments: uploadedFiles,
         submittedAt: new Date().toISOString()
       };
 
@@ -497,6 +566,78 @@ if (hasSubmitted) {
               rows={4}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
+          </div>
+{/* Document Upload Section */}
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Upload Supporting Documents (Optional)
+            </label>
+            <p className="text-xs text-gray-600 mb-3">
+              Add reference materials (frameworks, models, reports, etc.). Max 10MB per file.
+              <br/>
+              <span className="text-orange-600">💡 Tip: DOCX and XLSX files work best. Scanned PDFs may not extract properly.</span>
+            </p>
+            
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50 hover:border-blue-400 transition-colors">
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.docx,.doc,.xlsx,.xls"
+                onChange={handleFileUpload}
+                disabled={isUploadingFiles}
+                className="hidden"
+                id="collaborator-file-upload"
+              />
+              <label
+                htmlFor="collaborator-file-upload"
+                className={`flex flex-col items-center justify-center cursor-pointer ${
+                  isUploadingFiles ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                <div className="text-4xl mb-2">📎</div>
+                <p className="text-gray-700 font-medium mb-1">
+                  {isUploadingFiles ? 'Uploading...' : 'Click to upload documents'}
+                </p>
+                <p className="text-xs text-gray-500">
+                  PDF, DOCX, or XLSX files
+                </p>
+              </label>
+            </div>
+
+            {/* Uploaded Files List */}
+            {uploadedFiles.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-sm font-semibold text-gray-700">
+                  Uploaded Files ({uploadedFiles.length}):
+                </p>
+                {uploadedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-300"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">
+                        {file.type === 'application/pdf' ? '📕' : 
+                         file.type.includes('spreadsheet') || file.type.includes('excel') ? '📊' : '📘'}
+                      </span>
+                      <div>
+                        <p className="text-sm text-gray-900 font-medium">{file.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {(file.size / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => removeFile(index)}
+                      className="text-red-500 hover:text-red-700 transition-colors text-xl font-bold"
+                      title="Remove file"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Generate Button */}
