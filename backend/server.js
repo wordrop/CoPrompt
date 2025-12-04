@@ -28,9 +28,6 @@ const db = getFirestore(firebaseApp);
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// DEBUG: Check if API key is loaded
-console.log('================================');
-// DEBUG: Check if API key is loaded
 console.log('================================');
 console.log('🔍 DEBUG INFO:');
 console.log('📁 Current directory:', process.cwd());
@@ -45,6 +42,7 @@ const anthropic = new Anthropic({
 
 app.use(cors());
 app.use(express.json());
+
 // Helper function to extract text from documents
 async function extractTextFromDocuments(documentUrls) {
   if (!documentUrls || documentUrls.length === 0) {
@@ -59,7 +57,6 @@ async function extractTextFromDocuments(documentUrls) {
     try {
       console.log(`📥 Fetching: ${docData.name}`);
       
-      // Fetch the document
       const response = await fetch(docData.url);
       const buffer = await response.arrayBuffer();
       const nodeBuffer = Buffer.from(buffer);
@@ -67,29 +64,25 @@ async function extractTextFromDocuments(documentUrls) {
       let text = '';
 
       if (docData.type === 'application/pdf') {
-        // Extract from PDF
         const pdfData = await pdfParse(nodeBuffer);
         text = pdfData.text;
         console.log(`✅ PDF extracted: ${text.length} characters`);
       } else if (docData.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
                  docData.type === 'application/msword') {
-        // Extract from DOCX
         const result = await mammoth.extractRawText({ buffer: nodeBuffer });
         text = result.value;
         console.log(`✅ DOCX extracted: ${text.length} characters`);
       } else if (docData.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
                  docData.type === 'application/vnd.ms-excel') {
-        // Extract from Excel
         const workbook = XLSX.read(nodeBuffer, { type: 'buffer' });
         const sheets = [];
         
         workbook.SheetNames.forEach(sheetName => {
           const worksheet = workbook.Sheets[sheetName];
           const sheetText = XLSX.utils.sheet_to_csv(worksheet, { FS: '\t' });
-          // Clean the text: remove excessive whitespace and special characters
           const cleanedText = sheetText
-            .replace(/\t+/g, ' | ')  // Replace tabs with pipes
-            .replace(/\n\n+/g, '\n')  // Remove multiple newlines
+            .replace(/\t+/g, ' | ')
+            .replace(/\n\n+/g, '\n')
             .trim();
           sheets.push(`\n--- Sheet: ${sheetName} ---\n${cleanedText}`);
         });
@@ -109,6 +102,7 @@ async function extractTextFromDocuments(documentUrls) {
 
   return extractedTexts.join('\n');
 }
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'CoPrompt API Server Running' });
 });
@@ -131,7 +125,6 @@ app.post('/api/claude', async (req, res) => {
     });
 
     const responseText = message.content[0].text;
-
     console.log(`✅ Response generated (${message.usage.output_tokens} tokens)`);
 
     res.json({
@@ -150,7 +143,7 @@ app.post('/api/claude', async (req, res) => {
     });
   }
 });
-// Save session to Firebase
+
 app.post('/api/save-session', async (req, res) => {
   try {
     const { sessionId, sessionData } = req.body;
@@ -174,7 +167,7 @@ app.post('/api/save-session', async (req, res) => {
     });
   }
 });
-// Endpoint for MC's initial analysis generation
+
 app.post('/api/generate-analysis', async (req, res) => {
   try {
     const { prompt, topic, uploadedDocuments } = req.body;
@@ -185,13 +178,11 @@ app.post('/api/generate-analysis', async (req, res) => {
 
     console.log('📊 Generating MC analysis...');
 
-    // Extract document text if documents exist
     let documentContext = '';
     if (uploadedDocuments && uploadedDocuments.length > 0) {
       documentContext = await extractTextFromDocuments(uploadedDocuments);
     }
 
-    // Build prompt with document context
     const fullPrompt = documentContext 
       ? `${prompt}\n\n=== UPLOADED DOCUMENTS ===\n${documentContext}\n\nPlease analyze the above context including the uploaded documents.`
       : prompt;
@@ -222,7 +213,7 @@ app.post('/api/generate-analysis', async (req, res) => {
     });
   }
 });
-// Endpoint for collaborator custom analysis
+
 app.post('/api/generate-collaborator-analysis', async (req, res) => {
   try {
     const { prompt, customPrompt, topic, mcAnalysis, context, uploadedDocuments } = req.body;
@@ -233,7 +224,6 @@ app.post('/api/generate-collaborator-analysis', async (req, res) => {
 
     console.log('👥 Generating collaborator analysis...');
 
-    // Extract document text if documents exist
     let documentContext = '';
     if (uploadedDocuments && uploadedDocuments.length > 0) {
       documentContext = await extractTextFromDocuments(uploadedDocuments);
@@ -270,7 +260,36 @@ app.post('/api/generate-collaborator-analysis', async (req, res) => {
   }
 });
 
-// Endpoint for MC synthesis generation
+app.post('/api/submit-synthesis-review', async (req, res) => {
+  try {
+    const { sessionId, review } = req.body;
+
+    if (!sessionId || !review) {
+      return res.status(400).json({ error: 'Session ID and review data are required' });
+    }
+
+    console.log('📝 Submitting synthesis review for session:', sessionId);
+
+    const sessionRef = doc(db, 'sessions', sessionId);
+    await updateDoc(sessionRef, {
+      synthesisReviews: arrayUnion(review)
+    });
+
+    console.log('✅ Review submitted successfully');
+
+    res.json({
+      success: true,
+      message: 'Review submitted successfully'
+    });
+  } catch (error) {
+    console.error('❌ Review submission error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to submit review'
+    });
+  }
+});
+
 app.post('/api/generate-synthesis', async (req, res) => {
   try {
     const { analyses, topic, sessionId } = req.body;
@@ -278,13 +297,11 @@ app.post('/api/generate-synthesis', async (req, res) => {
     if (!analyses || !Array.isArray(analyses) || analyses.length === 0) {
       return res.status(400).json({ error: 'Analyses array is required' });
     }
+
     const sessionRef = doc(db, 'sessions', sessionId);
     console.log(`🔄 Generating synthesis from ${analyses.length} analyses...`);
 
-    // Build the synthesis prompt
-    // Build the synthesis prompt - EXECUTIVE BRIEF FORMAT
-    // Build the synthesis prompt - RESTORE ORIGINAL 4-SECTION STRUCTURE
-    let synthesisPrompt = `You are synthesizing expert analyses into a structured decision brief.
+    let synthesisPrompt = `You are synthesizing expert analyses into an EXECUTIVE DECISION BRIEF.
 
 STRATEGIC QUESTION:
 ${topic}
@@ -295,73 +312,112 @@ EXPERT CONTRIBUTIONS:
     analyses.forEach((analysis, index) => {
       synthesisPrompt += `\n[${analysis.collaboratorName}]:\n${analysis.analysis}\n`;
     });
-
+    
     synthesisPrompt += `
 
-Create a comprehensive synthesis with FOUR CLEARLY LABELED SECTIONS:
+CREATE A COMPREHENSIVE SYNTHESIS WITH THESE SECTIONS:
 
-## 🤝 AREAS OF AGREEMENT
+## 🤝 AREAS OF AGREEMENT (MAX 150 WORDS)
 
-List the key points where experts converge (3-5 main areas of consensus):
-- [Agreement point 1]
-- [Agreement point 2]
-- [Agreement point 3]
+**Expert consensus on key points:**
 
-AI ASSESSMENT:
-Provide your interpretation of what this consensus means for the decision. What strengths does this agreement reveal? What can we confidently move forward with based on expert convergence?
+- **[Bold key term]**: [One clear sentence stating the agreement]
+- **[Bold key term]**: [One clear sentence stating the agreement]
+- **[Bold key term]**: [One clear sentence stating the agreement]
 
----
-
-## ⚔️ AREAS OF CONFLICT
-
-List the disagreements or divergent perspectives between experts (2-4 conflicts):
-- [Conflict 1: Describe the different viewpoints]
-- [Conflict 2: Describe the different viewpoints]
-
-AI RESOLUTION RECOMMENDATION:
-For each major conflict, suggest how to resolve it or which perspective to prioritize. Explain your reasoning. If the conflict reveals important trade-offs, highlight them clearly.
+**AI ASSESSMENT:**
+[2-3 sentences: What does this consensus enable? What can we confidently proceed with?]
 
 ---
 
-## ⚠️ CRITICAL POINTS & RED FLAGS
+## ⚔️ AREAS OF CONFLICT (MAX 150 WORDS)
 
-Highlight the most important issues that could make or break this decision (3-5 items):
-- [Critical issue 1]
-- [Critical issue 2]
-- [Critical issue 3]
+**Key disagreements requiring resolution:**
 
-CONTEXT & IMPLICATIONS:
-Explain why each point is critical. What happens if these are ignored? What dependencies or risks do they create?
+- **[Conflict topic]**: [Describe divergent viewpoints in one sentence each]
+- **[Conflict topic]**: [Describe divergent viewpoints in one sentence each]
 
----
-
-## 📊 EXECUTIVE SUMMARY & RECOMMENDATION
-
-CLEAR RECOMMENDATION:
-[State your Go/No-Go recommendation or specific path forward - be decisive]
-
-KEY RATIONALE:
-[Explain why this recommendation, drawing from expert consensus and your conflict resolution]
-
-NEXT STEPS:
-1. [Specific action with owner/timeline]
-2. [Specific action with owner/timeline]
-3. [Specific action with owner/timeline]
-
-TIMELINE CONSIDERATIONS:
-[Any time-sensitive factors or sequencing requirements]
+**AI RESOLUTION RECOMMENDATION:**
+[2-3 sentences: Which perspective to prioritize and why, OR how to reconcile]
 
 ---
 
-Aim for 800-1000 words total. Use the section structure exactly as shown. Be thorough in each section - this is a strategic decision that deserves comprehensive synthesis.`;
+## ⚠️ CRITICAL POINTS & RED FLAGS (MAX 150 WORDS)
+
+**Mission-critical issues:**
+
+- 🚨 **[Issue]**: [Why critical in one sentence] → [Impact if ignored]
+- ⚠️ **[Issue]**: [Why critical in one sentence] → [Impact if ignored]
+- ✅ **[Dependency]**: [What's required in one sentence] → [Consequence]
+
+**CONTEXT & IMPLICATIONS:**
+[2-3 sentences: Systemic view of why these matter together]
+
+---
+
+## 📊 EXECUTIVE SUMMARY & RECOMMENDATION (MAX 200 WORDS)
+
+**CLEAR RECOMMENDATION:**
+**[GO / NO-GO / CONDITIONAL] - [One sentence explaining the decision]**
+
+**KEY RATIONALE:**
+- [Rationale point 1 - one sentence]
+- [Rationale point 2 - one sentence]
+- [Rationale point 3 - one sentence]
+
+**NEXT STEPS:**
+1. **[Action]** - [Owner] - [Timeline]
+2. **[Action]** - [Owner] - [Timeline]
+3. **[Action]** - [Owner] - [Timeline]
+
+**TIMELINE CONSIDERATIONS:**
+[2 sentences max: Time-sensitive factors or sequencing]
+
+---
+
+CRITICAL RULES:
+- Be intellectually honest - if experts provided fabricated data, flag it
+- Don't invent specifics not provided by experts
+- Use bullet points throughout for scannability
+- Target: 600-700 words TOTAL
+- Be decisive and specific`;
 
     const message = await anthropic.messages.create({
-  model: 'claude-sonnet-4-20250514',
-  max_tokens: 5000,  // Changed from 1800 for comprehensive synthesis
-  system: 'You are an expert at synthesizing multiple perspectives into coherent insights.',
-  messages: [{ role: 'user', content: synthesisPrompt }],
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 5000,
+      system: 'You are an expert at synthesizing multiple perspectives into coherent insights.',
+      messages: [{ role: 'user', content: synthesisPrompt }],
+    });
+
+    const responseText = message.content[0].text;
+    console.log(`✅ Synthesis generated (${message.usage.output_tokens} tokens)`);
+
+    // SAVE TO FIREBASE with version 1
+    console.log('💾 Saving synthesis to Firebase...');
+    await updateDoc(sessionRef, {
+      synthesis: responseText,
+      synthesisVersion: 1,
+      synthesisGeneratedAt: new Date().toISOString()
+    });
+    console.log('✅ Synthesis saved to Firebase');
+
+    res.json({
+      success: true,
+      response: responseText,
+      usage: {
+        inputTokens: message.usage.input_tokens,
+        outputTokens: message.usage.output_tokens,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Synthesis Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate synthesis',
+    });
+  }
 });
-// NEW: Phase 1B - Revise synthesis with feedback
+
 app.post('/api/revise-synthesis', async (req, res) => {
   try {
     const { sessionId, originalSynthesis, analyses, feedback, revisionInstructions, topic } = req.body;
@@ -369,14 +425,12 @@ app.post('/api/revise-synthesis', async (req, res) => {
     console.log('📝 Revising synthesis for session:', sessionId);
     console.log('📊 Feedback items:', feedback.length);
 
-    // Get session to check version history
     const sessionRef = doc(db, 'sessions', sessionId);
     const sessionDoc = await getDoc(sessionRef);
     const sessionData = sessionDoc.data();
     const currentVersion = sessionData.synthesisVersion || 1;
     const newVersion = currentVersion + 1;
 
-    // Check if we've hit the 3-version limit
     if (newVersion > 3) {
       return res.status(400).json({
         success: false,
@@ -384,18 +438,15 @@ app.post('/api/revise-synthesis', async (req, res) => {
       });
     }
 
-    // Format feedback for the prompt
     const feedbackSummary = feedback.map(f => 
       `${f.collaboratorName} (${f.role}): ${f.rating === 'thumbs_up' ? '👍 Helpful' : '👎 Needs Work'}
 Comment: ${f.comment || 'No comment'}`
     ).join('\n\n');
 
-    // Format analyses for context
     const analysesText = analyses.map(a => 
       `${a.collaboratorName} (${a.role || 'Collaborator'}):\n${a.analysis}`
     ).join('\n\n---\n\n');
 
-    // Build the revision prompt
     const revisionPrompt = `You are synthesizing strategic analyses for a decision-maker.
 
 ORIGINAL SYNTHESIS (Version ${currentVersion}):
@@ -426,34 +477,15 @@ Requirements:
 
 Generate the REVISED synthesis now:`;
 
-    console.log('🤖 Calling Claude API for synthesis revision...');
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 5000,
-        messages: [{
-          role: 'user',
-          content: revisionPrompt
-        }]
-      })
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 5000,
+      system: 'You are an expert at synthesizing multiple perspectives into coherent insights.',
+      messages: [{ role: 'user', content: revisionPrompt }],
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Claude API error: ${response.status} - ${JSON.stringify(errorData)}`);
-    }
+    const revisedSynthesis = message.content[0].text;
 
-    const data = await response.json();
-    const revisedSynthesis = data.content[0].text;
-
-    // Prepare version history entry
     const versionHistoryEntry = {
       version: currentVersion,
       synthesis: originalSynthesis,
@@ -461,21 +493,18 @@ Generate the REVISED synthesis now:`;
       revisedAt: new Date().toISOString()
     };
 
-    // Update session in Firebase
     const updateData = {
       synthesis: revisedSynthesis,
       synthesisGeneratedAt: new Date().toISOString(),
       synthesisVersion: newVersion,
-      synthesisReviews: [], // Clear current reviews for fresh round
-      versionHistory: [...(sessionData.versionHistory || []), versionHistoryEntry].slice(-3) // Keep last 3
+      synthesisReviews: [],
+      versionHistory: [...(sessionData.versionHistory || []), versionHistoryEntry].slice(-3)
     };
 
     await updateDoc(sessionRef, updateData);
 
     console.log(`✅ Synthesis revised! Version ${currentVersion} → ${newVersion}`);
-    console.log(`📚 Version history entries: ${updateData.versionHistory.length}`);
 
-    // Show warning if approaching limit
     const warningMessage = newVersion === 2 
       ? '💡 First revision complete. Consider finalizing to avoid decision paralysis.'
       : newVersion === 3
@@ -486,7 +515,11 @@ Generate the REVISED synthesis now:`;
       success: true,
       response: revisedSynthesis,
       version: newVersion,
-      warning: warningMessage
+      warning: warningMessage,
+      usage: {
+        inputTokens: message.usage.input_tokens,
+        outputTokens: message.usage.output_tokens,
+      },
     });
 
   } catch (error) {
@@ -494,33 +527,6 @@ Generate the REVISED synthesis now:`;
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to revise synthesis'
-    });
-  }
-});
-const responseText = message.content[0].text;
-console.log(`✅ Synthesis generated (${message.usage.output_tokens} tokens)`);
-
-// SAVE TO FIREBASE (ADD THIS!)
-console.log('💾 Saving synthesis to Firebase...');
-await updateDoc(sessionRef, {
-  synthesis: responseText,
-  synthesisGeneratedAt: new Date().toISOString()
-});
-console.log('✅ Synthesis saved to Firebase');
-
-res.json({
-  success: true,
-  response: responseText,
-  usage: {
-    inputTokens: message.usage.input_tokens,
-    outputTokens: message.usage.output_tokens,
-  },
-});
-  } catch (error) {
-    console.error('❌ Synthesis Error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to generate synthesis',
     });
   }
 });

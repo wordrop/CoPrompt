@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db, storage } from './firebase';
-import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import CollaboratorRoom from './CollaboratorRoom';
 import MCDashboard from './MCDashboard';
@@ -121,26 +121,35 @@ useEffect(() => {
     setSessionId(urlSessionId);
     setMode('collaborator');
   } else if (urlSessionId) {
-    // MC view - load session from Firebase
+    // MC view - load session from Firebase with real-time updates
     setSessionId(urlSessionId);
-    const loadSession = async () => {
-      try {
-        const sessionRef = doc(db, 'sessions', urlSessionId);
-        const sessionSnap = await getDoc(sessionRef);
-        
-        if (sessionSnap.exists()) {
-          setSession(sessionSnap.data());
-          setMode('mc-dashboard');
+    setMode('mc-dashboard');
+    
+    // Set up real-time listener
+    const sessionRef = doc(db, 'sessions', urlSessionId);
+    const unsubscribe = onSnapshot(sessionRef, 
+      (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const sessionData = docSnapshot.data();
+          setSession(sessionData);
+          console.log('🔄 Session updated in real-time:', {
+            status: sessionData.status,
+            hasSynthesis: !!sessionData.synthesis,
+            finalized: sessionData.status === 'finalized'
+          });
         } else {
           console.error('Session not found');
           alert('Session not found');
         }
-      } catch (error) {
+      },
+      (error) => {
         console.error('Error loading session:', error);
         alert('Failed to load session');
       }
-    };
-    loadSession();
+    );
+    
+    // Cleanup listener when component unmounts
+    return () => unsubscribe();
   }
 }, []);
 const handleFileUpload = async (e) => {
@@ -296,6 +305,7 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
         selectedRoles: [...selectedRoles, ...customRoles],
         uploadedDocuments: uploadedFiles,
         createdAt: new Date().toISOString(),
+	status: 'active',
         submissions: [],
         synthesis: ''
       };
@@ -357,7 +367,21 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
   }
 
   // MC Dashboard view
+  // MC Dashboard view
   if (mode === 'mc-dashboard' && sessionId) {
+    // Show loading if session data hasn't loaded yet
+    if (!session) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-6xl mb-4">⏳</div>
+            <p className="text-xl text-gray-700 font-semibold">Loading session...</p>
+            <p className="text-sm text-gray-500 mt-2">Connecting to Firebase</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div>
         {/* Navigation Bar */}

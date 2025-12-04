@@ -157,6 +157,7 @@ export default function CollaboratorRoom({ sessionId }) {
   // Cleanup listener when component unmounts
   return () => unsubscribe();
 }, [sessionId]);
+
 const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files);
     
@@ -223,6 +224,7 @@ const handleFileUpload = async (e) => {
   const removeFile = (index) => {
     setUploadedFiles(uploadedFiles.filter((_, i) => i !== index));
   };
+
   const generateAnalysis = async () => {
     setIsGenerating(true);
     setError(null);
@@ -232,20 +234,41 @@ const handleFileUpload = async (e) => {
       
       if (customPrompt.trim()) {
         // User provided custom instructions
-        prompt = `${customPrompt}\n\nTopic: ${session.title}`;
+        prompt = `You are an expert [${selectedRole || 'advisor'}] analyzing: "${session.title}"
+
+${customPrompt}
+
+INSTRUCTIONS:
+- Maximum 200 words
+- Use bullet points
+- Be specific and actionable
+- Focus on insights requiring your expertise
+
+Build on MC's analysis - add NEW perspective, don't repeat existing points.`;
       } else {
         // Default analysis prompt
-        prompt = `Provide a detailed analysis of: "${session.title}"
+        prompt = `You are an expert [${selectedRole || 'advisor'}] analyzing: "${session.title}"
 
-Please include:
-1. Your interpretation of the topic
-2. Key insights and observations
-3. Critical questions or considerations
-4. Potential implications or applications
+CRITICAL INSTRUCTIONS:
+- Maximum 200 words total
+- Use bullet points for ALL insights
+- Be pointed and specific, avoid generalities
+- Focus on NON-OBVIOUS insights that require your expertise
+- Reference relevant data, benchmarks, or best practices when applicable
 
-Be thorough and structured in your response. Focus on insights only YOU can provide. Build upon the MC's analysis, don't repeat it.
+Provide 3-5 key insights:
 
-STRICT LIMIT: 150-200 words maximum. Be ruthlessly concise.`;
+**PRIMARY RECOMMENDATION:**
+- [One clear recommendation with rationale - 1-2 sentences]
+
+**CRITICAL CONSIDERATIONS:**
+- [Key risk, opportunity, or trade-off - 1 sentence]
+- [Non-obvious factor others might miss - 1 sentence]
+
+**ACTION-ORIENTED CONCLUSION:**
+- [Specific next step or decision criterion - 1 sentence]
+
+Build on MC's analysis - add NEW perspective, don't repeat existing points.`;
       }
 
       console.log('📡 Calling backend for collaborator analysis...');
@@ -261,7 +284,7 @@ STRICT LIMIT: 150-200 words maximum. Be ruthlessly concise.`;
           topic: session.title,
           mcAnalysis: session.aiAnalysis,
           context: session.context,
-	  uploadedDocuments: [...(session.uploadedDocuments || []), ...uploadedFiles],
+          uploadedDocuments: [...(session.uploadedDocuments || []), ...uploadedFiles],
         }),
       });
 
@@ -325,133 +348,172 @@ STRICT LIMIT: 150-200 words maximum. Be ruthlessly concise.`;
       setHasSubmitted(true);
       alert('✅ Successfully submitted!');
 
-    } catch (error) {
-      console.error('Submission error:', error);
-      alert('Failed to submit. Check console for details.');
+    } catch (err) {
+      console.error('Submit error:', err);
+      alert('Failed to submit. Please try again.');
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading session...</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading session...</div>
       </div>
     );
   }
 
-  if (!session) {
+  if (error || !session) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-xl p-8 max-w-md">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Session Not Found</h2>
-          <p className="text-gray-600">This session link may be invalid or expired.</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-white text-xl">{error || 'Session not found'}</div>
       </div>
     );
   }
 
-if (hasSubmitted) {
+  if (hasSubmitted) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Success Card */}
-        <div className="bg-white rounded-lg shadow-xl p-8 text-center">
-          <div className="text-6xl mb-4">✅</div>
-          <h2 className="text-2xl font-bold text-green-600 mb-4">
-            Submission Complete!
-          </h2>
-          <p className="text-gray-600 mb-4">
-            Your {role} analysis has been submitted.
-          </p>
-          <p className="text-sm text-gray-500">
-            {session.mcName} can now view your contribution.
-          </p>
-        </div>
-
-{/* Your Submitted Analysis - Collapsible */}
-        <div className="bg-blue-50 rounded-lg shadow-md p-6 border-2 border-blue-200">
-          <button
-            onClick={() => setShowMyAnalysis(!showMyAnalysis)}
-            className="w-full flex items-center justify-between text-left hover:bg-blue-100 p-2 rounded transition-colors"
-          >
-            <h3 className="text-lg font-bold text-blue-900">
-              {showMyAnalysis ? '▼' : '▶'} Your Submitted Analysis ({role})
-            </h3>
-            <span className="text-sm text-blue-600 font-semibold">
-              {showMyAnalysis ? 'Hide' : 'Show'}
-            </span>
-          </button>
-          
-          {showMyAnalysis && (
-            <div className="mt-4 space-y-3">
-              <div className="flex items-center justify-between text-xs text-gray-600 bg-white px-3 py-2 rounded">
-                <span>Submitted by: <strong>{collaboratorName}</strong></span>
-                <span>{new Date(session.submissions?.find(sub => sub.role === role)?.submittedAt).toLocaleString()}</span>
-              </div>
-              
-              <div className="p-4 bg-white rounded-lg border border-blue-200 max-h-64 overflow-y-auto">
-                <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
-                  {session.submissions?.find(sub => sub.role === role)?.analysis || analysis}
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <div className="max-w-4xl mx-auto py-12 px-6">
+        
+        {/* Finalized Status Banner - Show if session is finalized */}
+        {session.status === 'finalized' && (
+          <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl shadow-2xl p-8 mb-8 border-2 border-green-400">
+            <div className="flex items-start gap-4">
+              <span className="text-6xl">🎉</span>
+              <div>
+                <h2 className="text-3xl font-bold text-white mb-3">
+                  Decision Finalized
+                </h2>
+                <p className="text-green-100 text-lg">
+                  This decision has been closed by {session.mcName} on {new Date(session.finalizedAt).toLocaleDateString()}.
                 </p>
+                {session.finalDecision && (
+                  <div className="mt-4 p-4 bg-green-900/30 rounded-lg border border-green-400">
+                    <p className="text-sm font-semibold text-green-200 mb-2">Final Notes from MC:</p>
+                    <p className="text-white whitespace-pre-wrap">{session.finalDecision}</p>
+                  </div>
+                )}
               </div>
-              
-              {customPrompt && (
-                <div className="p-3 bg-blue-100 rounded border border-blue-300">
-                  <p className="text-xs font-semibold text-blue-900 mb-1">Your Custom Focus:</p>
-                  <p className="text-xs text-blue-800">{customPrompt}</p>
-                </div>
-              )}
             </div>
-          )}
-        </div>        
-{/* Synthesis Review Section */}
-        {session?.synthesis && (
-          <div className="bg-white rounded-lg shadow-xl p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">
-              📊 Synthesis Ready for Your Review
-            </h3>
-            <p className="text-gray-600 mb-4">
-              The session leader has generated a synthesis. Please review and provide feedback.
-            </p>
-
-            {/* Display Synthesis */}
-            <div className="mb-6 p-6 bg-gray-50 rounded-lg border border-gray-200 max-h-96 overflow-y-auto">
-              <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
-                {session.synthesis}
-              </p>
-            </div>
-
-            {/* Check if this collaborator already reviewed */}
-            {session.synthesisReviews?.find(r => r.collaboratorName === collaboratorName) ? (
-              <div className="p-4 bg-green-50 border border-green-300 rounded-lg">
-                <p className="text-green-700 text-sm">
-                  ✓ You've already provided feedback on this synthesis
-                </p>
-              </div>
-            ) : (
-              <SynthesisReviewForm 
-                sessionId={sessionId}
-                collaboratorName={collaboratorName}
-                collaboratorRole={role}
-                onReviewSubmitted={() => {
-  // Do nothing - Firebase real-time listener will update automatically
-}}
-              />
-            )}
           </div>
         )}
 
-        {/* Helpful message if no synthesis yet */}
-        {!session?.synthesis && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <p className="text-blue-800">
-              📊 The session leader will generate a synthesis soon. 
-              <br/>
-              <span className="text-sm">Bookmark this page and check back later to review and provide feedback.</span>
+        {/* Submission Confirmation - Show if NOT finalized yet */}
+        {session.status !== 'finalized' && (
+          <div className="bg-white rounded-lg shadow-xl p-8 text-center mb-8">
+            <div className="text-6xl mb-4">✅</div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              Thank you, {collaboratorName}!
+            </h1>
+            <p className="text-lg text-gray-600 mb-6">
+              Your {role} analysis has been successfully submitted.
             </p>
+            <p className="text-gray-500">
+              {session.mcName} will now be able to view your contribution in their dashboard.
+            </p>
+          </div>
+        )}
+
+        {/* Always show: Your Analysis */}
+        <div className="bg-white rounded-lg shadow-xl p-8 mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            📝 Your Analysis
+          </h2>
+          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">{analysis}</p>
+          </div>
+        </div>
+
+        {/* Always show: MC's Analysis */}
+        {session.aiAnalysis && (
+          <div className="bg-white rounded-lg shadow-xl p-8 mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              🎯 MC's Initial Analysis
+            </h2>
+            <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{session.aiAnalysis}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Synthesis Section - Show if exists */}
+        {session.synthesis && (
+          <div className="border-t pt-8">
+            <div className="bg-gradient-to-br from-purple-900 via-indigo-900 to-slate-900 rounded-lg shadow-xl p-8 mb-8">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+                      📊 Final Synthesis
+                    </h2>
+                    {session.status === 'finalized' && (
+                      <span className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded-full uppercase tracking-wide">
+                        ✓ FINAL
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-slate-400 text-sm mt-1">
+                    {session.status === 'finalized' 
+                      ? 'This is the final decision synthesis'
+                      : 'Generated from all expert analyses'}
+                  </p>
+                </div>
+                {session.synthesisGeneratedAt && (
+                  <span className="text-xs text-slate-500">
+                    {new Date(session.synthesisGeneratedAt).toLocaleString()}
+                  </span>
+                )}
+              </div>
+
+              {/* Synthesis Content */}
+              <div className="prose prose-invert max-w-none">
+                <div 
+                  className="text-slate-200 leading-relaxed whitespace-pre-wrap"
+                  dangerouslySetInnerHTML={{ 
+                    __html: session.synthesis
+                      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-purple-300 font-bold">$1</strong>')
+                      .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-bold text-purple-400 mt-8 mb-4 border-b border-purple-800 pb-2">$1</h2>')
+                      .replace(/^### (.*$)/gim, '<h3 class="text-xl font-bold text-purple-300 mt-6 mb-3">$1</h3>')
+                      .replace(/^- (.*$)/gim, '<li class="ml-4 mb-2">$1</li>')
+                      .replace(/\n\n/g, '</p><p class="mb-4">')
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Synthesis Feedback Form - Only show if NOT finalized */}
+            {!hasReviewed && session.status !== 'finalized' && (
+              <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg shadow-xl p-6 border border-slate-700">
+                <h3 className="text-xl font-bold text-slate-200 mb-4">
+                  💬 Provide Feedback on Synthesis
+                </h3>
+                <p className="text-sm text-slate-400 mb-4">
+                  Help improve the synthesis quality by sharing your thoughts
+                </p>
+                <SynthesisReviewForm
+                  sessionId={sessionId}
+                  collaboratorName={collaboratorName}
+                  collaboratorRole={role}
+                  onReviewSubmitted={() => setHasReviewed(true)}
+                />
+              </div>
+            )}
+
+            {hasReviewed && session.status !== 'finalized' && (
+              <div className="bg-green-900/30 border border-green-700 rounded-lg p-4 text-center">
+                <p className="text-green-300 font-semibold">
+                  ✅ Thank you for your feedback!
+                </p>
+              </div>
+            )}
+
+            {session.status === 'finalized' && (
+              <div className="bg-slate-800 border border-slate-600 rounded-lg p-4 text-center">
+                <p className="text-slate-300">
+                  This decision has been finalized. No further feedback can be submitted.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -459,46 +521,52 @@ if (hasSubmitted) {
   );
 }
 
+  const selectedRole = role || 'Advisor';
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-6">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+      <div className="max-w-4xl mx-auto py-8 px-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-gray-900">
-              Collaborator Room: {role}
-            </h1>
-            <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full font-semibold">
-              {role}
-            </span>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {session.title}
+              </h1>
+              <p className="text-gray-600 mt-1">
+                You are participating as: <span className="font-semibold text-blue-600">{selectedRole}</span>
+              </p>
+            </div>
+            <div className="text-sm text-gray-500">
+              MC: {session.mcName}
+            </div>
           </div>
-          <p className="text-gray-600">{session.title}</p>
         </div>
 
-        {/* Original Context */}
+        {/* MC Context */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-3">
-            Original Context from {session.mcName} ({session.mcRole})
+          <h2 className="text-xl font-bold text-gray-900 mb-4">
+            📋 Decision Context
           </h2>
-          <div className="prose max-w-none">
-            <p className="text-gray-700 whitespace-pre-wrap">{session.context}</p>
-          </div>
+          <p className="text-gray-700 whitespace-pre-wrap">{session.context}</p>
           
+          {/* MC's AI Analysis */}
           {session.aiAnalysis && (
             <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-sm font-semibold text-blue-900 mb-2">{session.mcName}'s Initial Analysis ({session.mcRole}):</p>
+              <p className="text-sm font-semibold text-blue-900 mb-2">MC's Initial AI Analysis:</p>
               <p className="text-sm text-gray-700 whitespace-pre-wrap">{session.aiAnalysis}</p>
             </div>
           )}
         </div>
-{/* Uploaded Documents Section */}
+
+        {/* MC's Uploaded Documents */}
         {session.uploadedDocuments && session.uploadedDocuments.length > 0 && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-3">
-              📄 Uploaded Documents
+            <h2 className="text-xl font-bold text-gray-900 mb-4">
+              📎 Reference Documents (from MC)
             </h2>
             <p className="text-sm text-gray-600 mb-4">
-              Review these documents before providing your analysis
+              These documents provide additional context for your analysis
             </p>
             <div className="space-y-3">
               {session.uploadedDocuments.map((doc, index) => (
@@ -507,16 +575,19 @@ if (hasSubmitted) {
                   href={doc.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors"
+                  className="flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors group"
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-3xl">
-                      {doc.type === 'application/pdf' ? '📕' : '📘'}
+                      {doc.type === 'application/pdf' ? '📕' : 
+                       doc.type.includes('spreadsheet') || doc.type.includes('excel') ? '📊' : '📘'}
                     </span>
                     <div>
-                      <p className="text-sm font-semibold text-gray-900">{doc.name}</p>
+                      <p className="text-sm font-semibold text-gray-900 group-hover:text-blue-700">
+                        {doc.name}
+                      </p>
                       <p className="text-xs text-gray-500">
-                        {(doc.size / 1024).toFixed(1)} KB • Click to view
+                        {(doc.size / 1024).toFixed(1)} KB
                       </p>
                     </div>
                   </div>
@@ -567,7 +638,8 @@ if (hasSubmitted) {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-{/* Document Upload Section */}
+
+          {/* Document Upload Section */}
           <div className="mb-4">
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Upload Supporting Documents (Optional)

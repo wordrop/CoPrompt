@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from './firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 
 // Add this helper component after imports, before the main export
 function SynthesisDisplay({ synthesis }) {
@@ -99,7 +99,12 @@ export default function MCDashboard({ sessionId, session }) {
   const [synthesis, setSynthesis] = useState('');
   const [isGeneratingSynthesis, setIsGeneratingSynthesis] = useState(false);
   const [synthesisReviews, setSynthesisReviews] = useState([]);
+  const [finalDecisionNotes, setFinalDecisionNotes] = useState('');
+  const [isFinalizing, setIsFinalizing] = useState(false);
   const [error, setError] = useState(null);
+  // NEW: Track session status internally
+  const [sessionStatus, setSessionStatus] = useState(session?.status || 'active');
+
   
   // Modal state for viewing full analysis
   const [selectedSubmission, setSelectedSubmission] = useState(null);
@@ -109,7 +114,13 @@ export default function MCDashboard({ sessionId, session }) {
   const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
   const [revisionInstructions, setRevisionInstructions] = useState('');
   const [isRevising, setIsRevising] = useState(false);
-
+  // NEW: Sync session status when prop changes
+  useEffect(() => {
+    if (session?.status) {
+      console.log('🔄 Session status updated:', session.status);
+      setSessionStatus(session.status);
+    }
+  }, [session?.status]);
   useEffect(() => {
     if (!sessionId) return;
 
@@ -128,6 +139,49 @@ export default function MCDashboard({ sessionId, session }) {
 
     return () => unsubscribe();
   }, [sessionId]);
+
+  const handleFinalizeSession = async () => {
+    console.log('🔍 FINALIZE CLICKED', { 
+      sessionId, 
+      session, 
+      mcName: session?.mcName,
+      finalNotes: finalDecisionNotes 
+    });
+
+    if (!window.confirm('⚠️ Are you sure? This will permanently lock the session.\n\nNo more synthesis iterations or feedback can be submitted.\n\nCollaborators can still view the final synthesis.')) {
+      console.log('❌ User cancelled finalization');
+      return;
+    }
+    
+    console.log('✅ User confirmed, proceeding with finalization...');
+    setIsFinalizing(true);
+    
+    try {
+      const sessionRef = doc(db, 'sessions', sessionId);
+      console.log('📝 Session ref created:', sessionRef.id);
+      
+      const updateData = {
+        status: 'finalized',
+        finalizedAt: new Date().toISOString(),
+        finalizedBy: session.mcName,
+        finalDecision: finalDecisionNotes.trim() || null
+      };
+      console.log('📦 Sending update to Firebase:', updateData);
+      
+      await updateDoc(sessionRef, updateData);
+      
+      console.log('✅ Firebase updated successfully!');
+      setSessionStatus('finalized');
+      alert('✅ Decision finalized successfully!');
+    } catch (error) {
+      console.error('❌ FIREBASE ERROR:', error);
+      console.error('❌ Error details:', error.message, error.code);
+      alert('❌ Failed to finalize decision: ' + error.message);
+    } finally {
+      setIsFinalizing(false);
+      console.log('🏁 Finalization process complete');
+    }
+  };
 
   const generateSynthesis = async () => {
     if (!submissions || submissions.length === 0) {
@@ -273,14 +327,13 @@ export default function MCDashboard({ sessionId, session }) {
           <title>${session.title} - Synthesis</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; }
-            h1 { color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
-            pre { white-space: pre-wrap; word-wrap: break-word; }
+            h1 { color: #1e40af; border-bottom: 2px solid #1e40af; padding-bottom: 10px; }
+            .synthesis { white-space: pre-wrap; margin-top: 20px; }
           </style>
         </head>
         <body>
           <h1>${session.title}</h1>
-          <h2>AI Synthesis</h2>
-          <pre>${synthesis}</pre>
+          <div class="synthesis">${synthesis}</div>
         </body>
       </html>
     `);
@@ -296,7 +349,7 @@ export default function MCDashboard({ sessionId, session }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-6">;
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-6">
       <div className="max-w-6xl mx-auto">
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">{session.mcName}'s Dashboard</h1>
@@ -308,6 +361,11 @@ export default function MCDashboard({ sessionId, session }) {
             {synthesisReviews.length > 0 && (
               <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-semibold">
                 {synthesisReviews.length} feedback received
+              </span>
+            )}
+            {sessionStatus === 'finalized' && (
+              <span className="px-3 py-1 bg-green-600 text-white rounded-full text-sm font-bold uppercase tracking-wide">
+                ✓ Finalized
               </span>
             )}
           </div>
@@ -329,7 +387,7 @@ export default function MCDashboard({ sessionId, session }) {
               <p className="text-sm text-gray-700 whitespace-pre-wrap">{session.aiAnalysis}</p>
             </div>
           )}
-</div>
+        </div>
 
         {/* Uploaded Documents Section */}
         {session.uploadedDocuments && session.uploadedDocuments.length > 0 && (
@@ -366,28 +424,38 @@ export default function MCDashboard({ sessionId, session }) {
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-900">AI Synthesis</h2>
-            <button
-              onClick={generateSynthesis}
-              disabled={isGeneratingSynthesis || submissions.length === 0}
-              className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
-                isGeneratingSynthesis || submissions.length === 0
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700'
-              }`}
-            >
-              {isGeneratingSynthesis ? (
-                <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Generating...
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold text-gray-900">AI Synthesis</h2>
+              {sessionStatus === 'finalized' && (
+                <span className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded-full uppercase tracking-wide">
+                  ✓ FINAL
                 </span>
-              ) : (
-                '✨ Generate Synthesis'
               )}
-            </button>
+            </div>
+            
+            {sessionStatus !== 'finalized' && (
+              <button
+                onClick={generateSynthesis}
+                disabled={isGeneratingSynthesis || submissions.length === 0}
+                className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
+                  isGeneratingSynthesis || submissions.length === 0
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700'
+                }`}
+              >
+                {isGeneratingSynthesis ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Generating...
+                  </span>
+                ) : (
+                  '✨ Generate Synthesis'
+                )}
+              </button>
+            )}
           </div>
 
           {synthesis ? (
@@ -504,6 +572,77 @@ export default function MCDashboard({ sessionId, session }) {
           )}
         </div>
 
+        {/* Finalize Decision Section */}
+        {synthesis && sessionStatus !== 'finalized' && (
+  <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl shadow-lg p-8 mb-6 border-2 border-green-200">
+
+    <div className="flex items-start gap-4 mb-4">
+      <span className="text-4xl">🔒</span>
+      
+    </div>
+            <div className="flex items-start gap-4 mb-4">
+              <span className="text-4xl">🔒</span>
+              <div>
+                <h3 className="text-2xl font-bold text-green-900 mb-2">
+                  Ready to Finalize Decision?
+                </h3>
+                <p className="text-sm text-green-800">
+                  Finalizing will lock this session - no more synthesis iterations or feedback submissions. Collaborators can still view the final synthesis.
+                </p>
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-green-900 mb-2">
+                Final Decision Summary (Optional):
+              </label>
+              <textarea
+                value={finalDecisionNotes}
+                onChange={(e) => setFinalDecisionNotes(e.target.value)}
+                placeholder="Add final decision summary, action items, or closing notes..."
+                rows={4}
+                className="w-full px-4 py-3 border-2 border-green-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
+            </div>
+            
+            <button
+              onClick={handleFinalizeSession}
+              disabled={isFinalizing}
+              className={`w-full py-4 rounded-lg font-bold text-lg transition-all ${
+                isFinalizing
+                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl'
+              }`}
+            >
+              {isFinalizing ? '⏳ Finalizing...' : '🔒 Finalize Decision'}
+            </button>
+          </div>
+        )}
+
+        {/* Finalized Status Display */}
+        {sessionStatus === 'finalized' && (
+  <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl shadow-lg p-8 mb-6 border-2 border-slate-600">
+    <div className="flex items-start gap-4 mb-4">
+      <span className="text-5xl">✅</span>
+      <div>
+        <h3 className="text-2xl font-bold text-white mb-2">
+          Decision Finalized
+        </h3>
+        <p className="text-slate-300">
+          Closed by {session?.finalizedBy || session?.mcName || 'MC'} on {session?.finalizedAt ? new Date(session.finalizedAt).toLocaleDateString() : 'just now'} at {session?.finalizedAt ? new Date(session.finalizedAt).toLocaleTimeString() : 'just now'}
+        </p>
+      </div>
+    </div>
+            
+            {session.finalDecision && (
+              <div className="bg-slate-900 rounded-lg p-6 mt-4">
+                <p className="text-sm font-semibold text-slate-400 mb-3">Final Decision Summary:</p>
+                <p className="text-slate-100 whitespace-pre-wrap leading-relaxed">{session.finalDecision}</p>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="mb-4">
           <h2 className="text-xl font-bold text-gray-900">Collaborator Submissions</h2>
           <p className="text-sm text-gray-600 mt-1">Click on any card to view the full analysis</p>
@@ -593,26 +732,26 @@ export default function MCDashboard({ sessionId, session }) {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold">{selectedSubmission.collaboratorName}</h2>
-                  <p className="text-purple-100 text-sm mt-1">
-                    {selectedSubmission.role || 'Collaborator'} • Submitted: {new Date(selectedSubmission.submittedAt).toLocaleString()}
-                  </p>
-                </div>
-                <button
-                  onClick={closeModal}
-                  className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+            <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 flex justify-between items-start">
+              <div>
+                <h2 className="text-2xl font-bold mb-2">
+                  {selectedSubmission.collaboratorName}'s Analysis
+                </h2>
+                <p className="text-purple-100 text-sm">
+                  {selectedSubmission.role || 'Collaborator'} • Submitted {new Date(selectedSubmission.submittedAt).toLocaleString()}
+                </p>
               </div>
+              <button
+                onClick={closeModal}
+                className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
 
-            {/* Modal Content */}
+            {/* Modal Body */}
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
               {selectedSubmission.customPrompt && (
                 <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -621,68 +760,62 @@ export default function MCDashboard({ sessionId, session }) {
                 </div>
               )}
 
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Full Analysis:</h3>
-                <div className="prose max-w-none">
-                  <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-                    {selectedSubmission.analysis}
-                  </p>
-                </div>
+              <div className="prose max-w-none">
+                <p className="text-gray-800 whitespace-pre-wrap leading-relaxed">
+                  {selectedSubmission.analysis}
+                </p>
               </div>
-{/* Collaborator's Uploaded Documents */}
+
+              {/* Show Uploaded Documents */}
               {selectedSubmission.uploadedDocuments && selectedSubmission.uploadedDocuments.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Supporting Documents:</h3>
+                <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                  <p className="text-sm font-semibold text-green-900 mb-3">
+                    📎 Supporting Documents ({selectedSubmission.uploadedDocuments.length})
+                  </p>
                   <div className="space-y-2">
-                    {selectedSubmission.uploadedDocuments.map((doc, index) => (
+                    {selectedSubmission.uploadedDocuments.map((doc, idx) => (
                       <a
-                        key={index}
+                        key={idx}
                         href={doc.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors"
+                        className="flex items-center justify-between p-3 bg-white rounded-lg hover:bg-green-100 transition-colors"
                       >
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">
-                            {doc.type === 'application/pdf' ? '📕' : 
-                             doc.type.includes('spreadsheet') || doc.type.includes('excel') ? '📊' : '📘'}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">
+                            {doc.type === 'application/pdf' ? '📕' : '📘'}
                           </span>
                           <div>
-                            <p className="text-sm font-semibold text-gray-900">{doc.name}</p>
+                            <p className="text-sm font-medium text-gray-900">{doc.name}</p>
                             <p className="text-xs text-gray-500">
-                              {(doc.size / 1024).toFixed(1)} KB • Click to view
+                              {(doc.size / 1024).toFixed(1)} KB
                             </p>
                           </div>
                         </div>
-                        <span className="text-green-600 text-xl">↗</span>
+                        <span className="text-green-600">↗</span>
                       </a>
                     ))}
                   </div>
                 </div>
               )}
+
               {selectedSubmission.iterations && selectedSubmission.iterations.length > 1 && (
-                <div className="pt-4 border-t border-gray-200">
-                  <p className="text-sm text-gray-600">
-                    This analysis went through {selectedSubmission.iterations.length} iterations
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm font-semibold text-gray-700 mb-2">
+                    📝 Iteration History ({selectedSubmission.iterations.length} versions)
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    This analysis was refined {selectedSubmission.iterations.length - 1} time(s)
                   </p>
                 </div>
               )}
             </div>
 
             {/* Modal Footer */}
-            <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(selectedSubmission.analysis);
-                  alert('Analysis copied to clipboard!');
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-              >
-                📋 Copy Analysis
-              </button>
+            <div className="bg-gray-50 px-6 py-4 flex justify-end border-t">
               <button
                 onClick={closeModal}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
               >
                 Close
               </button>
@@ -695,114 +828,69 @@ export default function MCDashboard({ sessionId, session }) {
       {isRevisionModalOpen && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-          onClick={() => !isRevising && setIsRevisionModalOpen(false)}
+          onClick={() => setIsRevisionModalOpen(false)}
         >
           <div 
-            className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold">🔄 Revise Synthesis</h2>
-                  <p className="text-purple-100 text-sm mt-1">
-                    Incorporate collaborator feedback into a new version
-                  </p>
-                </div>
-                <button
-                  onClick={() => !isRevising && setIsRevisionModalOpen(false)}
-                  disabled={isRevising}
-                  className="text-white hover:bg-white/20 rounded-full p-2 transition-colors disabled:opacity-50"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-t-2xl">
+              <h2 className="text-2xl font-bold">Revise Synthesis</h2>
+              <p className="text-indigo-100 text-sm mt-1">
+                Add specific instructions for improving the synthesis
+              </p>
             </div>
 
-            {/* Modal Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-              <div className="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                <h3 className="font-semibold text-indigo-900 mb-3">📊 Feedback Summary:</h3>
-                <div className="space-y-2 text-sm">
-                  <p className="text-gray-700">
-                    <span className="font-medium">Total feedback:</span> {feedbackSummary.total} collaborators
-                  </p>
-                  <p className="text-gray-700">
-                    <span className="font-medium text-green-700">👍 Helpful:</span> {feedbackSummary.helpful}
-                  </p>
-                  <p className="text-gray-700">
-                    <span className="font-medium text-orange-700">👎 Needs work:</span> {feedbackSummary.needsWork}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <h3 className="font-semibold text-gray-900 mb-3">💬 Individual Comments:</h3>
-                <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {synthesisReviews.map((review, index) => (
-                    <div 
-                      key={index}
-                      className={`p-3 rounded-lg text-sm ${
-                        review.rating === 'thumbs_up' 
-                          ? 'bg-green-50 border border-green-200' 
-                          : 'bg-orange-50 border border-orange-200'
-                      }`}
-                    >
-                      <p className="font-medium text-gray-900 mb-1">
-                        {review.rating === 'thumbs_up' ? '👍' : '👎'} {review.collaboratorName} ({review.role})
-                      </p>
-                      {review.comment && (
-                        <p className="text-gray-700">"{review.comment}"</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Additional Instructions (Optional):
+            <div className="p-6">
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Revision Instructions (Optional):
                 </label>
                 <textarea
                   value={revisionInstructions}
                   onChange={(e) => setRevisionInstructions(e.target.value)}
-                  placeholder="E.g., 'Add a cost-benefit table' or 'Emphasize regulatory risks' or leave blank to just incorporate the feedback..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                  placeholder="e.g., 'Focus more on cost implications' or 'Add timeline recommendations'"
                   rows={4}
-                  disabled={isRevising}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
-            </div>
 
-            {/* Modal Footer */}
-            <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3">
-              <button
-                onClick={() => setIsRevisionModalOpen(false)}
-                disabled={isRevising}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors text-sm font-medium disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={reviseSynthesis}
-                disabled={isRevising}
-                className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-colors text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isRevising ? (
-                  <span className="flex items-center">
-                    <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Generating Revision...
-                  </span>
-                ) : (
-                  '🔄 Generate Revised Synthesis'
-                )}
-              </button>
+              <div className="bg-indigo-50 p-4 rounded-lg mb-4">
+                <p className="text-sm text-gray-700">
+                  <span className="font-semibold">💡 Tip:</span> The synthesis will be revised based on all collaborator feedback. 
+                  Add specific instructions here if you want to emphasize particular aspects.
+                </p>
+              </div>
+
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setIsRevisionModalOpen(false)}
+                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={reviseSynthesis}
+                  disabled={isRevising}
+                  className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                    isRevising
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700'
+                  }`}
+                >
+                  {isRevising ? (
+                    <span className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Revising...
+                    </span>
+                  ) : (
+                    '🔄 Generate Revised Synthesis'
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
