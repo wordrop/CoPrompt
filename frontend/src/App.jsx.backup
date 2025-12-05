@@ -1,734 +1,801 @@
-import React, { useState, useEffect } from 'react';
-import { Users, GitBranch, Sparkles, ArrowRight, Lock, Eye, CheckCircle2, AlertTriangle, TrendingUp, Upload, FileText, RefreshCw } from 'lucide-react';
-
-// Firebase imports
-import { db } from './firebase';
-import { collection, addDoc } from 'firebase/firestore';
-import { createSession, getSession, addParticipant, subscribeToSession, submitAnalysis } from './sessionManager';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { useState, useEffect } from 'react';
+import { db, storage } from './firebase';
+import { collection, addDoc, doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import CollaboratorRoom from './CollaboratorRoom';
+import MCDashboard from './MCDashboard';
+import RestaurantPlanner from './RestaurantPlanner';
 
 function App() {
-  // Detect mode from URL
-  const urlParams = new URLSearchParams(window.location.search);
-  const sessionIdFromUrl = urlParams.get('session');
-  const roleFromUrl = urlParams.get('role');
+// Check if this is restaurant mode
+  if (window.location.pathname === '/restaurant') {
+    return <RestaurantPlanner />;
+  }
   
-  const [userMode, setUserMode] = useState(roleFromUrl ? 'collaborator' : 'mc'); // 'mc' or 'collaborator'
-  const [currentRole, setCurrentRole] = useState(roleFromUrl || null);
+  const [mode, setMode] = useState('mc-create'); // 'mc-create', 'mc-dashboard', 'collaborator'
+  const [sessionId, setSessionId] = useState(null);
+  const [session, setSession] = useState(null);
+  const [inviteLinks, setInviteLinks] = useState({});
 
-  // MC States
-  const [phase, setPhase] = useState('input');
-  const [mainPrompt, setMainPrompt] = useState('');
-  const [mainResponse, setMainResponse] = useState('');
-  const [selectedRoom, setSelectedRoom] = useState(null);
-  const [roomResponses, setRoomResponses] = useState({});
-  const [completedRooms, setCompletedRooms] = useState([]);
-  const [invitedParticipants, setInvitedParticipants] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [synthesisOutput, setSynthesisOutput] = useState(null);
-  const [error, setError] = useState('');
+  // Form states
+  const [title, setTitle] = useState('');
+  const [context, setContext] = useState('');
+  const [mcName, setMcName] = useState('');
+  const [mcEmail, setMcEmail] = useState('');
+  const [mcRole, setMcRole] = useState('Project Lead');
+  const [mcCustomRole, setMcCustomRole] = useState('');
+  const [selectedRoles, setSelectedRoles] = useState([]);
+  const [customRoles, setCustomRoles] = useState([]);           // NEW: Array of custom role names
+  const [customRoleInput, setCustomRoleInput] = useState('');   // NEW: Text input for new custom role
+  const [customRoleError, setCustomRoleError] = useState('');   // NEW: Error message for custom roles
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState('');
+  const [error, setError] = useState(null);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
 
-  // Session management
-  const [sessionId, setSessionId] = useState(sessionIdFromUrl || null);
-  const [sessionData, setSessionData] = useState(null);
-  const [ownerName, setOwnerName] = useState('');
-  const [ownerEmail, setOwnerEmail] = useState('');
-  const [sessionName, setSessionName] = useState('');
-
-  // Collaborator States
-  const [collaboratorName, setCollaboratorName] = useState('');
-  const [customPrompt, setCustomPrompt] = useState('');
-  const [uploadedDocs, setUploadedDocs] = useState([]);
-  const [analysisVersions, setAnalysisVersions] = useState([]);
-  const [currentAnalysis, setCurrentAnalysis] = useState('');
-  const [isSubmitted, setIsSubmitted] = useState(false);
-
-  const rooms = [
-    { 
-      id: 'marketing', 
-      name: 'Marketing Strategy', 
-      icon: '📊',
-      defaultFocus: [
-        'Target market analysis (TAM/SAM/SOM)',
-        'Go-to-market strategy and channels',
-        'Customer acquisition cost and lifetime value',
-        'Competitive positioning'
-      ],
-      systemPrompt: 'You are a marketing strategist analyzing business opportunities.'
-    },
-    { 
-      id: 'risk', 
-      name: 'Risk & Compliance', 
-      icon: '⚖️',
-      defaultFocus: [
-        'Regulatory compliance requirements',
-        'Legal and liability risks',
-        'Data privacy and security concerns',
-        'Risk mitigation strategies'
-      ],
-      systemPrompt: 'You are a risk officer evaluating potential risks.'
-    },
-    { 
-      id: 'tech', 
-      name: 'Technical Architecture', 
-      icon: '⚙️',
-      defaultFocus: [
-        'Technology stack recommendations',
-        'System architecture and scalability',
-        'Integration requirements',
-        'Development timeline'
-      ],
-      systemPrompt: 'You are a technical architect designing systems.'
-    },
-    { 
-      id: 'finance', 
-      name: 'Financial Model', 
-      icon: '💰',
-      defaultFocus: [
-        'Revenue model and pricing',
-        'Cost structure and projections',
-        'Break-even analysis',
-        'Unit economics (CAC/LTV)'
-      ],
-      systemPrompt: 'You are a financial analyst creating financial models.'
-    },
-    { 
-      id: 'legal', 
-      name: 'Legal Affairs', 
-      icon: '⚖️',
-      defaultFocus: [
-        'Intellectual property strategy',
-        'Required contracts',
-        'Litigation risks',
-        'Regulatory compliance'
-      ],
-      systemPrompt: 'You are legal counsel assessing legal requirements.'
-    },
-    { 
-      id: 'operations', 
-      name: 'Operations', 
-      icon: '🔧',
-      defaultFocus: [
-        'Operational infrastructure',
-        'Customer support strategy',
-        'Scaling plans',
-        'Process automation'
-      ],
-      systemPrompt: 'You are an operations manager planning operational readiness.'
-    }
+  const roleOptions = [
+    'Project Lead',
+    'Product Manager',
+    'CEO / Founder',
+    'Strategy Lead',
+    'Department Head',
+    'Team Lead',
+    'Director',
+    'VP / Executive',
+    'Other'
   ];
 
-  // Load session data if URL has sessionId
+  const collaboratorRoles = [
+    'Marketing', 'Sales', 'Product', 'Engineering', 
+    'Finance', 'Operations', 'Legal', 'HR', 
+    'Customer Success', 'Data Analytics', 'Risk Management', 
+    'Strategy', 'Design', 'Security'
+  ];
+
   useEffect(() => {
-    if (sessionIdFromUrl) {
-      loadSession(sessionIdFromUrl);
+    const params = new URLSearchParams(window.location.search);
+    const urlSessionId = params.get('session');
+    const role = params.get('role');
+    
+    if (urlSessionId && role) {
+      setMode('collaborator');
+      setSessionId(urlSessionId);
     }
-  }, [sessionIdFromUrl]);
+  }, []);
 
-  const loadSession = async (sessionId) => {
-    try {
-      const data = await getSession(sessionId);
-      setSessionData(data);
-      setMainPrompt(data.mainPrompt);
-      setMainResponse(data.mainResponse);
-      setSessionName(data.name);
-      
-      if (roleFromUrl) {
-        // Collaborator view
-        setUserMode('collaborator');
-        setCurrentRole(roleFromUrl);
-        
-        // Load their existing analysis if any
-        if (data.analyses && data.analyses[roleFromUrl]) {
-          setCurrentAnalysis(data.analyses[roleFromUrl].analysis);
-          setIsSubmitted(data.analyses[roleFromUrl].status === 'submitted');
-        }
-      } else {
-        // MC view - load session state
-        setPhase('review');
-      }
-    } catch (err) {
-      setError('Session not found');
-    }
+  const toggleRole = (role) => {
+    setSelectedRoles(prev => 
+      prev.includes(role) 
+        ? prev.filter(r => r !== role)
+        : [...prev, role]
+    );
   };
 
-  const callClaude = async (prompt, systemPrompt = '', retries = 3) => {
-    let lastError;
+  // NEW: Add custom role
+  const addCustomRole = () => {
+    const trimmedRole = customRoleInput.trim();
     
-    for (let i = 0; i < retries; i++) {
-      try {
-        const response = await fetch(`${API_URL}/api/claude`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt, systemPrompt })
-        });
+    // Validation
+    if (!trimmedRole) {
+      setCustomRoleError('Please enter a role name');
+      return;
+    }
+    
+    if (customRoles.length >= 5) {
+      setCustomRoleError('Maximum 5 custom roles allowed');
+      return;
+    }
+    
+    if (selectedRoles.includes(trimmedRole) || customRoles.includes(trimmedRole)) {
+      setCustomRoleError('This role already exists');
+      return;
+    }
+    
+    // Add role and clear input
+    setCustomRoles([...customRoles, trimmedRole]);
+    setCustomRoleInput('');
+    setCustomRoleError('');
+  };
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          
-          if (response.status === 529 && i < retries - 1) {
-            console.log(`⏳ API overloaded, retrying in ${(i + 1) * 2}s...`);
-            await new Promise(resolve => setTimeout(resolve, (i + 1) * 2000));
-            lastError = new Error(errorData.error || 'API overloaded');
-          } else {
-            throw new Error(errorData.error || 'API call failed');
-          }
+  // NEW: Remove custom role
+  const removeCustomRole = (roleToRemove) => {
+    setCustomRoles(customRoles.filter(role => role !== roleToRemove));
+  };
+
+  // NEW: Handle Enter key in input
+  const handleCustomRoleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addCustomRole();
+    }
+  };
+// Load session from URL on page load
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const urlSessionId = params.get('session');
+  const urlRole = params.get('role');
+
+  if (urlSessionId && urlRole) {
+    // Collaborator view
+    setSessionId(urlSessionId);
+    setMode('collaborator');
+  } else if (urlSessionId) {
+    // MC view - load session from Firebase with real-time updates
+    setSessionId(urlSessionId);
+    setMode('mc-dashboard');
+    
+    // Set up real-time listener
+    const sessionRef = doc(db, 'sessions', urlSessionId);
+    const unsubscribe = onSnapshot(sessionRef, 
+      (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const sessionData = docSnapshot.data();
+          setSession(sessionData);
+          console.log('🔄 Session updated in real-time:', {
+            status: sessionData.status,
+            hasSynthesis: !!sessionData.synthesis,
+            finalized: sessionData.status === 'finalized'
+          });
         } else {
-          const data = await response.json();
-          return data.response;
+          console.error('Session not found');
+          alert('Session not found');
         }
-      } catch (err) {
-        lastError = err;
-        if (i < retries - 1) {
-          await new Promise(resolve => setTimeout(resolve, (i + 1) * 2000));
-        }
+      },
+      (error) => {
+        console.error('Error loading session:', error);
+        alert('Failed to load session');
       }
+    );
+    
+    // Cleanup listener when component unmounts
+    return () => unsubscribe();
+  }
+}, []);
+const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    
+    if (files.length === 0) return;
+    
+    // Validate file types
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
+    ];
+    const invalidFiles = files.filter(file => !allowedTypes.includes(file.type));
+    
+    if (invalidFiles.length > 0) {
+      alert('Only PDF and DOCX files are allowed');
+      return;
     }
     
-    throw lastError;
+    // Validate file size (max 10MB per file)
+    const oversizedFiles = files.filter(file => file.size > 10 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      alert('Files must be under 10MB each');
+      return;
+    }
+    
+    setIsUploadingFiles(true);
+    
+    try {
+      const uploadedFileData = [];
+      
+      for (const file of files) {
+        // Create unique filename
+        const timestamp = Date.now();
+        const fileName = `${timestamp}_${file.name}`;
+        const storageRef = ref(storage, `session-documents/${fileName}`);
+        
+        // Upload file
+        await uploadBytes(storageRef, file);
+        
+        // Get download URL
+        const downloadURL = await getDownloadURL(storageRef);
+        
+        uploadedFileData.push({
+          name: file.name,
+          url: downloadURL,
+          type: file.type,
+          size: file.size,
+          uploadedAt: new Date().toISOString()
+        });
+      }
+      
+      setUploadedFiles([...uploadedFiles, ...uploadedFileData]);
+      alert(`Successfully uploaded ${files.length} file(s)!`);
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload files. Please try again.');
+    } finally {
+      setIsUploadingFiles(false);
+    }
   };
 
-  const handleMainPrompt = async () => {
-    setLoading(true);
-    setError('');
+  const removeFile = (index) => {
+    setUploadedFiles(uploadedFiles.filter((_, i) => i !== index));
+  };
+  const generateAIAnalysis = async () => {
+    setIsGenerating(true);
+    setError(null);
+
     try {
-      if (!ownerName.trim() || !ownerEmail.trim() || !sessionName.trim()) {
-        setError('Please provide your name, email, and session name');
-        setLoading(false);
-        return;
-      }
+      const prompt = `You are an expert strategic analyst. Provide a BRUTALLY CONCISE analysis.
 
-      const response = await callClaude(
-        mainPrompt,
-        'You are a strategic advisor analyzing a product or business idea. Provide a comprehensive initial analysis covering: key features, main challenges, target market, and monetization opportunities. Be detailed but concise (300-400 words).'
-      );
-      
-      setMainResponse(response);
+CONTEXT: ${context}
+QUESTION: ${title}
 
-      const newSessionId = await createSession({
-        ownerName,
-        ownerEmail,
-        sessionName,
-        mainPrompt,
-        mainResponse: response
+STRICT LIMIT: 200 words maximum (not 201, not 250 - exactly 200 or less)
+
+Format:
+
+KEY INSIGHTS (3 bullets max)
+- [Critical finding only]
+
+EXPERT VIEWS NEEDED (3 bullets max)
+- [Specific expertise required]
+
+CRITICAL QUESTIONS (3 questions max)
+- [Must-answer questions]
+
+MAIN RISKS (2 bullets max)
+- [Highest-stakes concerns]
+
+Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
+
+      console.log('📡 Calling backend for analysis...');
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/generate-analysis`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          topic: title,
+          uploadedDocuments: uploadedFiles,
+        }),
       });
 
-      setSessionId(newSessionId);
-      console.log('✅ Session created:', newSessionId);
-      
-      setPhase('invite');
+      if (!response.ok) {
+        throw new Error(`Backend error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setAiAnalysis(data.response);
+        console.log('✅ Analysis received from backend');
+      } else {
+        throw new Error(data.error || 'Failed to generate analysis');
+      }
     } catch (err) {
-      setError(err.message);
+      console.error('❌ Error generating analysis:', err);
+      setError(err.message || 'Failed to generate AI analysis. Please try again.');
     } finally {
-      setLoading(false);
+      setIsGenerating(false);
     }
   };
 
-  const handleCollaboratorAnalysis = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const room = rooms.find(r => r.id === currentRole);
-      
-      // Build the full prompt with context
-      const fullPrompt = `
-Original Context from Product Owner:
-${mainResponse}
-
-Your Role: ${room.name}
-
-Your Custom Instructions:
-${customPrompt}
-
-${uploadedDocs.length > 0 ? `\nReference Documents: ${uploadedDocs.map(d => d.name).join(', ')}` : ''}
-
-Please provide a detailed ${room.name} analysis based on the above context and instructions. Include specific recommendations, numbers where relevant, and actionable insights (300-500 words).
-      `.trim();
-
-      const analysis = await callClaude(fullPrompt, room.systemPrompt);
-      
-      setCurrentAnalysis(analysis);
-      setAnalysisVersions([...analysisVersions, {
-        version: analysisVersions.length + 1,
-        prompt: customPrompt,
-        analysis: analysis,
-        timestamp: new Date().toISOString()
-      }]);
-
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmitAnalysis = async () => {
-    if (!currentAnalysis.trim()) {
-      setError('Please generate an analysis before submitting');
+  const createSession = async () => {
+    const totalRoles = selectedRoles.length + customRoles.length;
+    if (!title.trim() || !context.trim() || !mcName.trim() || !mcEmail.trim() || totalRoles === 0) {
+      alert('Please fill all required fields and select at least one role');
       return;
     }
 
-    setLoading(true);
-    setError('');
+    if (mcRole === 'Other' && !mcCustomRole.trim()) {
+      alert('Please specify your role');
+      return;
+    }
+
     try {
-      await submitAnalysis(sessionId, currentRole, {
-        userId: collaboratorName,
-        type: 'ai',
-        customPrompt: customPrompt,
-        documents: uploadedDocs,
-        analysis: currentAnalysis,
-        versions: analysisVersions
+      const finalRole = mcRole === 'Other' ? mcCustomRole : mcRole;
+      
+      const sessionData = {
+        title,
+        context,
+        aiAnalysis,
+        mcName,
+        mcEmail,
+        mcRole: finalRole,
+        selectedRoles: [...selectedRoles, ...customRoles],
+        uploadedDocuments: uploadedFiles,
+        createdAt: new Date().toISOString(),
+	status: 'active',
+        submissions: [],
+        synthesis: ''
+      };
+
+      const docRef = await addDoc(collection(db, 'sessions'), sessionData);
+      const newSessionId = docRef.id;
+      setSessionId(newSessionId);
+      setSession(sessionData);
+
+      // Generate invite links
+      const baseUrl = window.location.origin;
+      const links = {};
+      const allRoles = [...selectedRoles, ...customRoles];  // CHANGED: Combine both
+      allRoles.forEach(role => {
+        links[role] = `${baseUrl}?session=${newSessionId}&role=${encodeURIComponent(role)}`;
       });
+      setInviteLinks(links);
 
-      setIsSubmitted(true);
-      alert('✅ Analysis submitted successfully!');
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      // Switch to dashboard view
+      setMode('mc-dashboard');
+      // Update URL with session ID
+      window.history.pushState({}, '', `?session=${newSessionId}`);
+    } catch (error) {
+      console.error('Session creation error:', error);
+      alert('Failed to create session');
     }
   };
 
-  const toggleParticipant = (roomId) => {
-    if (invitedParticipants.includes(roomId)) {
-      setInvitedParticipants(invitedParticipants.filter(id => id !== roomId));
-    } else {
-      setInvitedParticipants([...invitedParticipants, roomId]);
-    }
+  const copyInviteLink = (role) => {
+    navigator.clipboard.writeText(inviteLinks[role]);
+    alert(`Copied invite link for ${role}!`);
   };
 
-  const copyInviteLink = (roomId) => {
-    const link = `${window.location.origin}?session=${sessionId}&role=${roomId}`;
-    navigator.clipboard.writeText(link);
-    alert(`✅ Invite link copied for ${rooms.find(r => r.id === roomId)?.name}!\n\nShare this link with your collaborator.`);
+  const resetAndGoHome = () => {
+    setMode('mc-create');
+    setSessionId(null);
+    setSession(null);
+    setTitle('');
+    setContext('');
+    setMcName('');
+    setMcEmail('');
+    setMcRole('Project Lead');
+    setMcCustomRole('');
+    setSelectedRoles([]);
+    setCustomRoles([]);        // NEW
+    setCustomRoleInput('');    // NEW
+    setCustomRoleError('');    // NEW
+    setUploadedFiles([]);
+    setIsUploadingFiles(false);    
+    setAiAnalysis('');
+    setInviteLinks({});
+    setError(null);
+    window.history.pushState({}, '', window.location.pathname);
   };
 
-  // COLLABORATOR VIEW
-  if (userMode === 'collaborator' && currentRole) {
-    const room = rooms.find(r => r.id === currentRole);
-    
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-6">
-        <div className="max-w-5xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="bg-gradient-to-r from-violet-500 to-purple-600 p-3 rounded-xl shadow-lg shadow-violet-500/50">
-                <span className="text-3xl">{room?.icon}</span>
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent">
-                  {room?.name}
-                </h1>
-                <p className="text-slate-400 text-sm">Session: {sessionName}</p>
-              </div>
-            </div>
-            
-            {isSubmitted && (
-              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-green-500" />
-                <span className="text-sm text-green-400">Your analysis has been submitted</span>
-              </div>
-            )}
+  // Collaborator view
+  if (mode === 'collaborator') {
+    return <CollaboratorRoom sessionId={sessionId} />;
+  }
+
+  // MC Dashboard view
+  // MC Dashboard view
+  if (mode === 'mc-dashboard' && sessionId) {
+    // Show loading if session data hasn't loaded yet
+    if (!session) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-6xl mb-4">⏳</div>
+            <p className="text-xl text-gray-700 font-semibold">Loading session...</p>
+            <p className="text-sm text-gray-500 mt-2">Connecting to Firebase</p>
           </div>
+        </div>
+      );
+    }
 
-          {error && (
-            <div className="mb-6 bg-red-500/10 border border-red-500/50 rounded-lg p-4 flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium text-red-400">Error</p>
-                <p className="text-sm text-red-300">{error}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Collaborator Name Input (if not set) */}
-          {!collaboratorName && (
-            <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-8 mb-6">
-              <h2 className="text-xl font-bold mb-4">Welcome! Please introduce yourself</h2>
-              <input
-                type="text"
-                value={collaboratorName}
-                onChange={(e) => setCollaboratorName(e.target.value)}
-                placeholder="Enter your name"
-                className="w-full bg-slate-900/50 border border-slate-600 rounded-lg p-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:outline-none mb-4"
-              />
+    return (
+      <div>
+        {/* Navigation Bar */}
+        <nav className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 shadow-lg">
+          <div className="max-w-6xl mx-auto flex justify-between items-center">
+            <h1 className="text-xl font-bold">CoPrompt</h1>
+            <div className="flex gap-4">
               <button
-                onClick={() => collaboratorName.trim() && setCollaboratorName(collaboratorName)}
-                disabled={!collaboratorName.trim()}
-                className="bg-gradient-to-r from-violet-500 to-purple-600 px-6 py-3 rounded-lg font-medium hover:shadow-lg hover:shadow-violet-500/50 transition-all disabled:opacity-50"
+                onClick={() => setMode('mc-dashboard')}
+                className="px-4 py-2 bg-white/20 rounded hover:bg-white/30 transition-colors"
               >
-                Continue
+                📊 Dashboard
+              </button>
+              <button
+                onClick={resetAndGoHome}
+                className="px-4 py-2 bg-white/20 rounded hover:bg-white/30 transition-colors"
+              >
+                ➕ New Session
               </button>
             </div>
-          )}
+          </div>
+        </nav>
 
-          {collaboratorName && (
-            <>
-              {/* Original Context */}
-              <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-6 mb-6">
-                <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-blue-400" />
-                  Original Context (from Product Owner)
-                </h3>
-                <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-600">
-                  <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">{mainResponse}</p>
-                </div>
-              </div>
-
-              {/* Your Role & Focus */}
-              <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-6 mb-6">
-                <h3 className="text-lg font-bold mb-3">Your Role & Focus Areas</h3>
-                <div className="bg-violet-500/10 border border-violet-500/30 rounded-lg p-4 mb-3">
-                  <p className="font-medium text-violet-300 mb-2">{room?.name}</p>
-                  <ul className="text-sm text-slate-300 space-y-1">
-                    {room?.defaultFocus.map((focus, idx) => (
-                      <li key={idx}>• {focus}</li>
-                    ))}
-                  </ul>
-                </div>
-                <p className="text-xs text-slate-400">You can customize your analysis with your own prompt below</p>
-              </div>
-
-              {/* Custom Prompt */}
-              <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-6 mb-6">
-                <h3 className="text-lg font-bold mb-3">Your Custom Analysis Prompt</h3>
-                <textarea
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  placeholder={`Example: Focus on Gen Z market (18-25). Analyze social media strategy, particularly TikTok and Instagram. Budget constraint: $50K for first 6 months. Include influencer partnership recommendations.`}
-                  disabled={isSubmitted}
-                  className="w-full h-32 bg-slate-900/50 border border-slate-600 rounded-lg p-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:outline-none disabled:opacity-50"
-                />
-              </div>
-
-              {/* Document Upload */}
-              <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-6 mb-6">
-                <h3 className="text-lg font-bold mb-3">Upload Reference Documents (Optional)</h3>
-                <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center">
-                  <Upload className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-                  <p className="text-sm text-slate-400 mb-2">Drag files here or click to upload</p>
-                  <p className="text-xs text-slate-500">PDF, Word, Excel files supported</p>
+        {/* Invite Links Section (Sticky) */}
+        {Object.keys(inviteLinks).length > 0 && (
+          <div className="bg-gradient-to-r from-green-50 to-blue-50 border-b border-green-200 p-4 sticky top-0 z-10 shadow-sm">
+            <div className="max-w-6xl mx-auto">
+              <h3 className="font-bold text-gray-900 mb-3">📨 Invite Links (Click to Copy)</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {Object.entries(inviteLinks).map(([role, link]) => (
                   <button
-                    disabled={isSubmitted}
-                    className="mt-3 bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm transition-all disabled:opacity-50"
+                    key={role}
+                    onClick={() => copyInviteLink(role)}
+                    className="flex items-center justify-between bg-white px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors border border-gray-200 text-sm"
                   >
-                    Choose Files
+                    <span className="font-medium text-gray-900">{role}</span>
+                    <span className="text-blue-600">📋</span>
                   </button>
-                </div>
-                {uploadedDocs.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {uploadedDocs.map((doc, idx) => (
-                      <div key={idx} className="flex items-center justify-between bg-slate-900/50 rounded p-2">
-                        <span className="text-sm">{doc.name}</span>
-                        <button className="text-red-400 text-sm">Remove</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                ))}
               </div>
+            </div>
+          </div>
+        )}
 
-              {/* Generate / Regenerate */}
-              {!isSubmitted && (
-                <div className="mb-6">
-                  <button
-                    onClick={handleCollaboratorAnalysis}
-                    disabled={!customPrompt.trim() || loading}
-                    className="w-full bg-gradient-to-r from-violet-500 to-purple-600 px-6 py-4 rounded-lg font-medium hover:shadow-lg hover:shadow-violet-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Generating Analysis...
-                      </>
-                    ) : (
-                      <>
-                        {currentAnalysis ? <RefreshCw className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
-                        {currentAnalysis ? 'Regenerate Analysis' : 'Generate AI Analysis'}
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-
-              {/* Analysis Output */}
-              {currentAnalysis && (
-                <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-6 mb-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-violet-400" />
-                      Your Analysis
-                      {analysisVersions.length > 0 && (
-                        <span className="text-sm text-slate-400">(v{analysisVersions.length})</span>
-                      )}
-                    </h3>
-                  </div>
-                  <div className="bg-slate-900/50 rounded-lg p-6 border border-violet-500/20">
-                    <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">{currentAnalysis}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Submit Button */}
-              {currentAnalysis && !isSubmitted && (
-                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-6">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-bold text-blue-300 mb-1">Ready to submit?</h3>
-                      <p className="text-sm text-slate-400">Once submitted, you won't be able to edit this analysis</p>
-                    </div>
-                    <button
-                      onClick={handleSubmitAnalysis}
-                      disabled={loading}
-                      className="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-3 rounded-lg font-medium hover:shadow-lg hover:shadow-green-500/50 transition-all disabled:opacity-50 flex items-center gap-2"
-                    >
-                      <CheckCircle2 className="w-5 h-5" />
-                      Submit to Main Room
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        {/* Dashboard */}
+        <MCDashboard sessionId={sessionId} session={session} />
       </div>
     );
   }
 
-  // MC VIEW (continues with existing MC code...)
+  // MC Create Session view (DEFAULT)
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-6">
-      <div className="max-w-7xl mx-auto mb-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-r from-violet-500 to-purple-600 p-3 rounded-xl shadow-lg shadow-violet-500/50">
-              <Sparkles className="w-8 h-8" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent">CoPrompt</h1>
-              <p className="text-slate-400 text-sm">AI-Powered Collaborative Decision Making</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8">
+      <div className="max-w-4xl mx-auto">
+        {/* Header Section */}
+        {/* Header with tagline */}
+        <div className="text-center mb-8">
+          <h1 className="text-5xl font-bold text-white mb-3">
+            ✨ CoPrompt
+          </h1>
+          <p className="text-xl text-slate-300 mb-2">
+            Where Teams and AI Collaborate
+          </p>
+          <p className="text-base text-slate-400 italic">
+            CoPrompt helps teams turn ideas into insight — collaboratively, instantly, and intelligently.
+          </p>
+        </div>
+          
+          {/* Description */}
+
+          {/* Key Features Section */}
+          <div className="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700 p-8 mb-8">
+            <h2 className="text-2xl font-bold text-white mb-6 flex items-center justify-center gap-2">
+              <span>✨</span> Key Features
+            </h2>
+            
+            <div className="grid md:grid-cols-3 gap-6">
+              {/* AI-Powered */}
+              <div className="text-center">
+                <div className="text-5xl mb-3">🤖</div>
+                <h3 className="text-lg font-bold text-white mb-2">AI-Powered</h3>
+                <p className="text-sm text-slate-300">
+                  Claude AI generates insights for both project leads and collaborators
+                </p>
+              </div>
+
+              {/* Real-time */}
+              <div className="text-center">
+                <div className="text-5xl mb-3">🔄</div>
+                <h3 className="text-lg font-bold text-white mb-2">Real-time</h3>
+                <p className="text-sm text-slate-300">
+                  Live updates as collaborators submit their analyses
+                </p>
+              </div>
+
+              {/* Role-Based */}
+              <div className="text-center">
+                <div className="text-5xl mb-3">🎯</div>
+                <h3 className="text-lg font-bold text-white mb-2">Role-Based</h3>
+                <p className="text-sm text-slate-300">
+                  Each collaborator brings their domain expertise
+                </p>
+              </div>
             </div>
           </div>
 
-          {phase !== 'input' && (
-            <div className="flex items-center gap-2 bg-slate-800/50 px-4 py-2 rounded-lg border border-slate-700">
-              <div className={`w-2 h-2 rounded-full ${phase === 'review' ? 'bg-blue-500 animate-pulse' : 'bg-slate-600'}`} />
-              <span className="text-sm">Review</span>
-              <ArrowRight className="w-4 h-4 text-slate-500" />
-              <div className={`w-2 h-2 rounded-full ${phase === 'invite' ? 'bg-orange-500 animate-pulse' : 'bg-slate-600'}`} />
-              <span className="text-sm">Invite</span>
+        {/* Main Form Card */}
+        <div className="bg-slate-800 rounded-2xl shadow-2xl p-8 border border-slate-700">
+          <h2 className="text-2xl font-bold text-white mb-3">Create New Session</h2>
+          <p className="text-sm text-slate-400 mb-6 italic">Each session is a collaborative workspace where AI and your team analyze a project together.</p>
+          <p className="text-slate-300 mb-8">Kick off with an AI analysis of your project or idea, invite collaborators for AI-enhanced insights, synthesize all perspectives, and watch insights come to life in real time.</p>
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-900/50 border border-red-700 rounded-lg">
+              <p className="text-sm text-red-200">{error}</p>
             </div>
           )}
-        </div>
-      </div>
 
-      {error && (
-        <div className="max-w-7xl mx-auto mb-6">
-          <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+          {/* Session Name */}
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-slate-200 mb-2">
+              Session Name
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g., Fitness App Strategy Review"
+              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Name and Email Row */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
             <div>
-              <p className="font-medium text-red-400">Error</p>
-              <p className="text-sm text-red-300">{error}</p>
+              <label className="block text-sm font-semibold text-slate-200 mb-2">
+                Your Name
+              </label>
+              <input
+                type="text"
+                value={mcName}
+                onChange={(e) => setMcName(e.target.value)}
+                placeholder="Alex Rodriguez"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-200 mb-2">
+                Your Email
+              </label>
+              <input
+                type="email"
+                value={mcEmail}
+                onChange={(e) => setMcEmail(e.target.value)}
+                placeholder="alex@company.com"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
             </div>
           </div>
-        </div>
-      )}
 
-      <div className="max-w-7xl mx-auto">
-        {phase === 'input' && (
-          <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-8">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold mb-2">Create New Session</h2>
-              <p className="text-slate-400">Start a collaborative decision-making session</p>
-            </div>
+          {/* Your Role */}
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-slate-200 mb-2">
+              Your Role
+            </label>
+            <select
+              value={mcRole}
+              onChange={(e) => setMcRole(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              {roleOptions.map(role => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </select>
+            
+            {mcRole === 'Other' && (
+              <input
+                type="text"
+                value={mcCustomRole}
+                onChange={(e) => setMcCustomRole(e.target.value)}
+                placeholder="Specify your role"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent mt-3"
+              />
+            )}
+          </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Session Name</label>
-                <input
-                  type="text"
-                  value={sessionName}
-                  onChange={(e) => setSessionName(e.target.value)}
-                  placeholder="e.g., Fitness App Strategy Review"
-                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg p-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Your Name</label>
-                  <input
-                    type="text"
-                    value={ownerName}
-                    onChange={(e) => setOwnerName(e.target.value)}
-                    placeholder="Alex Rodriguez"
-                    className="w-full bg-slate-900/50 border border-slate-600 rounded-lg p-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Your Email</label>
-                  <input
-                    type="email"
-                    value={ownerEmail}
-                    onChange={(e) => setOwnerEmail(e.target.value)}
-                    placeholder="alex@company.com"
-                    className="w-full bg-slate-900/50 border border-slate-600 rounded-lg p-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Your Product Idea or Strategic Question</label>
-                <textarea
-                  value={mainPrompt}
-                  onChange={(e) => setMainPrompt(e.target.value)}
-                  placeholder="Example: Build an AI-powered meal planning app for diabetics..."
-                  className="w-full h-32 bg-slate-900/50 border border-slate-600 rounded-lg p-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 text-sm text-slate-400 bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-                <Sparkles className="w-4 h-4 text-green-400" />
-                <span>Live Mode: Real Claude API responses • Session will be saved to Firebase</span>
-              </div>
-
-              <button
-                onClick={handleMainPrompt}
-                disabled={!mainPrompt.trim() || !ownerName.trim() || !ownerEmail.trim() || !sessionName.trim() || loading}
-                className="bg-gradient-to-r from-violet-500 to-purple-600 px-6 py-3 rounded-lg font-medium hover:shadow-lg hover:shadow-violet-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          {/* Strategic Context */}
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-slate-200 mb-2">
+              What would you like to work on today?
+            </label>
+            <textarea
+              value={context}
+              onChange={(e) => setContext(e.target.value)}
+              placeholder="Example: Build an AI-powered meal planning app for diabetics..."
+              rows={6}
+              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
+          </div>
+{/* Document Upload Section */}
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-slate-200 mb-2">
+              Upload Documents (Optional)
+            </label>
+            <p className="text-xs text-slate-400 mb-3 italic">
+              Add PDFs or DOCX files (resumes, job descriptions, RFPs, etc.). Max 10MB per file.
+              <br/>
+              <span className="text-yellow-400">💡 Tip: DOCX and XLSX files work best. Scanned/image PDFs may not extract properly.</span>
+            </p>
+            
+            <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 bg-slate-700/30 hover:border-purple-500 transition-colors">
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.docx,.doc,.xlsx,.xls"
+                onChange={handleFileUpload}
+                disabled={isUploadingFiles}
+                className="hidden"
+                id="file-upload"
+              />
+              <label
+                htmlFor="file-upload"
+                className={`flex flex-col items-center justify-center cursor-pointer ${
+                  isUploadingFiles ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
-                {loading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Creating Session...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-5 h-5" />
-                    Create Session & Generate Analysis
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {phase === 'invite' && (
-          <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-8">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold mb-2">Invite Collaborators</h2>
-              <p className="text-slate-400">Select domain experts and get their invite links</p>
+                <div className="text-5xl mb-3">📄</div>
+                <p className="text-slate-300 font-medium mb-1">
+                  {isUploadingFiles ? 'Uploading...' : 'Click to upload documents'}
+                </p>
+                <p className="text-xs text-slate-400">
+                  PDF or DOCX files only
+                </p>
+              </label>
             </div>
 
-            {/* Session Info */}
-            <div className="bg-slate-900/50 rounded-lg p-4 mb-6 border border-slate-600">
-              <div className="flex items-start gap-3">
-                <div className="bg-violet-500/20 p-2 rounded-lg">
-                  <Sparkles className="w-4 h-4 text-violet-400" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-300 mb-2">Session: {sessionName}</p>
-                  <p className="text-xs text-slate-400 mb-2">They'll see this context:</p>
-                  <p className="text-xs text-slate-500 line-clamp-2">{mainResponse}</p>
-                </div>
+            {/* Uploaded Files List */}
+            {uploadedFiles.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <p className="text-sm font-semibold text-slate-200">
+                  Uploaded Files ({uploadedFiles.length}):
+                </p>
+                {uploadedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-slate-700 rounded-lg border border-slate-600"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">
+                        {file.type === 'application/pdf' ? '📕' : 
+                         file.type.includes('spreadsheet') || file.type.includes('excel') ? '📊' : '📘'}
+                      </span>
+                      <div>
+                        <p className="text-sm text-white font-medium">{file.name}</p>
+                        <p className="text-xs text-slate-400">
+                          {(file.size / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => removeFile(index)}
+                      className="text-red-400 hover:text-red-300 transition-colors text-xl font-bold"
+                      title="Remove file"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
+          </div>
 
-            {/* Select Collaborators */}
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              {rooms.map(room => (
+          {/* Live Mode Info */}
+          {/* AI Info */}
+          <div className="mb-6 p-4 bg-purple-900/30 border border-purple-700 rounded-lg">
+            <p className="text-sm text-purple-200 text-center">
+              Powered by Claude AI to generate deep insights from your team's expertise
+            </p>
+          </div>
+
+          {/* Generate Analysis Button */}
+          <div className="mb-6">
+            <button
+              onClick={generateAIAnalysis}
+              disabled={isGenerating || !context.trim() || !title.trim()}
+              className={`w-full py-3 rounded-lg font-semibold transition-colors ${
+                isGenerating || !context.trim() || !title.trim()
+                  ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700'
+              }`}
+            >
+              {isGenerating ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Generating AI Analysis...
+                </span>
+              ) : (
+                '✨ Generate AI Analysis'
+              )}
+            </button>
+
+            {aiAnalysis && (
+              <div className="mt-4 p-4 bg-purple-900/30 border border-purple-700 rounded-lg">
+                <p className="text-sm font-semibold text-purple-200 mb-2">AI Analysis:</p>
+                <p className="text-sm text-slate-300 whitespace-pre-wrap max-h-64 overflow-y-auto">{aiAnalysis}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Role Selection */}
+          {/* Role Selection */}
+          {/* Role Selection */}
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-slate-200 mb-2">
+              Select roles you would like to include
+            </label>
+            <p className="text-xs text-slate-400 mb-3 italic">
+              Each brings a unique AI-driven perspective. ({selectedRoles.length + customRoles.length} selected)
+            </p>
+            
+            {/* Predefined Roles Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+              {collaboratorRoles.map(role => (
                 <button
-                  key={room.id}
-                  onClick={() => toggleParticipant(room.id)}
-                  className={`text-left p-5 rounded-xl transition-all ${
-                    invitedParticipants.includes(room.id)
-                      ? 'bg-gradient-to-br from-violet-500/20 to-purple-500/20 border-2 border-violet-500 shadow-lg'
-                      : 'bg-slate-900/50 border-2 border-slate-600 hover:border-slate-500'
+                  key={role}
+                  onClick={() => toggleRole(role)}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    selectedRoles.includes(role)
+                      ? 'bg-purple-600 text-white border-2 border-purple-400'
+                      : 'bg-slate-700 text-slate-300 border-2 border-slate-600 hover:bg-slate-600'
                   }`}
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <span className="text-3xl">{room.icon}</span>
-                    {invitedParticipants.includes(room.id) && (
-                      <CheckCircle2 className="w-6 h-6 text-violet-400" />
-                    )}
-                  </div>
-                  <h3 className="font-bold text-lg mb-1">{room.name}</h3>
-                  <p className="text-xs text-slate-400 mb-2">{room.defaultFocus[0]}</p>
-                  
-                  {invitedParticipants.includes(room.id) && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        copyInviteLink(room.id);
-                      }}
-                      className="mt-2 w-full bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-2"
-                    >
-                      📋 Copy Invite Link
-                    </button>
-                  )}
+                  {role}
                 </button>
               ))}
             </div>
 
-            {/* Summary */}
-            <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-600">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-400">
-                    <span className="font-medium text-white text-lg">{invitedParticipants.length}</span> collaborator{invitedParticipants.length !== 1 ? 's' : ''} selected
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">Share the invite links with your team members</p>
-                </div>
+            {/* Custom Roles Section */}
+            <div className="mt-6 pt-6 border-t border-slate-600">
+              <label className="block text-sm font-semibold text-slate-200 mb-3">
+                Add Custom Roles (Optional - Max 5)
+              </label>
+              
+              {/* Custom Role Input */}
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  value={customRoleInput}
+                  onChange={(e) => setCustomRoleInput(e.target.value)}
+                  onKeyPress={handleCustomRoleKeyPress}
+                  placeholder="e.g., Operational Risk, Chief Data Officer"
+                  maxLength={50}
+                  disabled={customRoles.length >= 5}
+                  className="flex-1 px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                />
                 <button
-                  onClick={() => {
-                    if (invitedParticipants.length === 0) {
-                      alert('Please select at least one collaborator');
-                      return;
-                    }
-                    alert(`✅ Session ready!\n\n${invitedParticipants.length} invite links are ready to share.\n\nClick "Copy Invite Link" on each role to share with your team.`);
-                  }}
-                  disabled={invitedParticipants.length === 0}
-                  className="bg-gradient-to-r from-violet-500 to-purple-600 px-6 py-3 rounded-lg font-medium hover:shadow-lg hover:shadow-violet-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  onClick={addCustomRole}
+                  disabled={!customRoleInput.trim() || customRoles.length >= 5}
+                  className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                 >
-                  <Users className="w-5 h-5" />
-                  Ready to Collaborate
+                  + Add
                 </button>
               </div>
-            </div>
 
-            {/* Example Links Display */}
-            {invitedParticipants.length > 0 && (
-              <div className="mt-6 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                <h3 className="text-sm font-medium text-blue-300 mb-3">📧 Invite Links Ready</h3>
+              {/* Error Message */}
+              {customRoleError && (
+                <p className="text-red-400 text-sm mb-3">{customRoleError}</p>
+              )}
+
+              {/* Custom Roles List */}
+              {customRoles.length > 0 && (
                 <div className="space-y-2">
-                  {invitedParticipants.slice(0, 2).map(roleId => {
-                    const room = rooms.find(r => r.id === roleId);
-                    return (
-                      <div key={roleId} className="bg-slate-900/50 rounded p-2 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl">{room?.icon}</span>
-                          <span className="text-sm text-slate-300">{room?.name}</span>
-                        </div>
-                        <button
-                          onClick={() => copyInviteLink(roleId)}
-                          className="text-xs text-blue-400 hover:text-blue-300"
-                        >
-                          Copy Link
-                        </button>
-                      </div>
-                    );
-                  })}
-                  {invitedParticipants.length > 2 && (
-                    <p className="text-xs text-slate-500 text-center">
-                      + {invitedParticipants.length - 2} more (scroll up to copy their links)
-                    </p>
-                  )}
+                  <p className="text-xs text-slate-400 mb-2">Custom Roles Added:</p>
+                  {customRoles.map((role, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between px-4 py-2 bg-slate-700 border border-purple-500 rounded-lg"
+                    >
+                      <span className="text-white font-medium">{role}</span>
+                      <button
+                        onClick={() => removeCustomRole(role)}
+                        className="text-red-400 hover:text-red-300 transition-colors text-lg font-bold"
+                        title="Remove this custom role"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        )}
+
+          {/* Create Session Button */}
+          <button
+            onClick={createSession}
+            disabled={!title.trim() || !context.trim() || !mcName.trim() || !mcEmail.trim() || (selectedRoles.length === 0 && customRoles.length === 0) || (mcRole === 'Other' && !mcCustomRole.trim())}
+            className={`w-full py-4 rounded-lg font-bold text-lg transition-colors ${
+              !title.trim() || !context.trim() || !mcName.trim() || !mcEmail.trim() || (selectedRoles.length === 0 && customRoles.length === 0) || (mcRole === 'Other' && !mcCustomRole.trim())
+                ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
+                : 'bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700'
+            }`}
+          >
+           ✨ Share Analysis & Invite Collaborators
+          </button>
+          
+          {/* Footer Tagline */}
+          <p className="text-center text-slate-400 text-sm mt-6 italic">
+            Where collaboration meets AI
+          </p>
+        </div>
       </div>
     </div>
   );

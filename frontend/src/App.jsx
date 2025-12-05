@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db, storage } from './firebase';
 import { collection, addDoc, doc, getDoc, onSnapshot } from 'firebase/firestore';
+import Landing from './Landing';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import CollaboratorRoom from './CollaboratorRoom';
 import MCDashboard from './MCDashboard';
@@ -10,6 +11,16 @@ function App() {
 // Check if this is restaurant mode
   if (window.location.pathname === '/restaurant') {
     return <RestaurantPlanner />;
+  }
+/// Check if this is landing page (no URL params and no create mode)
+  const params = new URLSearchParams(window.location.search);
+  const showLanding = !params.has('session') && !params.has('create') && window.location.pathname === '/';
+  
+  if (showLanding) {
+    return <Landing onStartSession={() => {
+      // Navigate to create mode
+      window.location.href = '/?create=true';
+    }} />;
   }
   
   const [mode, setMode] = useState('mc-create'); // 'mc-create', 'mc-dashboard', 'collaborator'
