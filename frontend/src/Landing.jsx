@@ -601,38 +601,61 @@ const Landing = ({ onStartSession }) => {
       </section>
 
       {/* Footer */}
-      <footer className="bg-slate-900 text-white py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-3 gap-8 mb-8">
-            <div>
-              <h5 className="text-xl font-bold mb-4">CoPrompt</h5>
-              <p className="text-slate-400">
-                Where Teams and AI Decide Together
-              </p>
-            </div>
-            <div>
-              <h6 className="font-semibold mb-4">Product</h6>
-              <ul className="space-y-2 text-slate-400">
-                <li><button onClick={() => scrollToSection('why-section')} className="hover:text-white">Why CoPrompt</button></li>
-                <li><button onClick={() => scrollToSection('how-section')} className="hover:text-white">How It Works</button></li>
-                <li><button onClick={() => scrollToSection('use-cases-section')} className="hover:text-white">Use Cases</button></li>
-                <li><button onClick={goToDemo} className="hover:text-white">Try Demo</button></li>
-              </ul>
-            </div>
-            <div>
-              <h6 className="font-semibold mb-4">Company</h6>
-              <ul className="space-y-2 text-slate-400">
-                <li><button onClick={goToApp} className="hover:text-white">Start Free</button></li>
-                <li><a href="#" className="hover:text-white">Contact</a></li>
-                <li><a href="#" className="hover:text-white">Privacy</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-slate-800 pt-8 text-center text-slate-400">
-            <p>© 2025 CoPrompt. Where Teams and AI Decide Together. All rights reserved.</p>
-          </div>
+<footer className="bg-slate-900 text-white py-12 px-4 sm:px-6 lg:px-8">
+  <div className="max-w-7xl mx-auto">
+    <div className="grid md:grid-cols-3 gap-8">
+      
+      <div>
+        <h3 className="text-xl font-bold mb-4">CoPrompt</h3>
+        <p className="text-slate-400">
+          Where Teams and AI Decide Together
+        </p>
+      </div>
+
+      <div>
+        <h4 className="font-semibold mb-4">Resources</h4>
+        <ul className="space-y-2">
+          <li>
+            <a href="/contact" className="text-slate-400 hover:text-white transition-colors">
+              Contact Us
+            </a>
+          </li>
+          <li>
+            <a href="/privacy" className="text-slate-400 hover:text-white transition-colors">
+              Privacy Policy
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 className="font-semibold mb-4">Get in Touch</h4>
+        <p className="text-slate-400 mb-2">
+          Questions? We'd love to hear from you.
+        </p>
+        <a 
+          href="mailto:hello@coprompt.net" 
+          className="text-blue-400 hover:text-blue-300 transition-colors"
+        >
+          hello@coprompt.net
+        </a>
+      </div>
+      
+    </div>
+
+    <div className="mt-8 pt-8 border-t border-slate-800">
+      <div className="flex flex-col md:flex-row justify-between items-center">
+        <p className="text-slate-400 text-sm">
+          &copy; 2025 CoPrompt. All rights reserved.
+        </p>
+        <div className="flex space-x-6 mt-4 md:mt-0">
+          <a href="/privacy" className="text-slate-400 hover:text-white text-sm">Privacy</a>
+          <a href="/contact" className="text-slate-400 hover:text-white text-sm">Contact</a>
         </div>
-      </footer>
+      </div>
+    </div>
+  </div>
+</footer>
     </div>
   );
 };

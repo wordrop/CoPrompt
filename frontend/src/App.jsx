@@ -6,8 +6,13 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import CollaboratorRoom from './CollaboratorRoom';
 import MCDashboard from './MCDashboard';
 import RestaurantPlanner from './RestaurantPlanner';
+import Contact from './Contact';
+import Privacy from './Privacy';
 
 function App() {
+const currentPath = window.location.pathname;
+  if (currentPath === '/privacy') return <Privacy />;
+  if (currentPath === '/contact') return <Contact />;
 // Check if this is restaurant mode
   if (window.location.pathname === '/restaurant') {
     return <RestaurantPlanner />;
