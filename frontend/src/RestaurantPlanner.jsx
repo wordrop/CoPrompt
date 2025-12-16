@@ -49,7 +49,7 @@ export default function RestaurantPlanner() {
       }
       
       // Set up real-time listener
-      const sessionRef = doc(db, 'sessions', urlSessionId);
+      const sessionRef = doc(db, 'restaurant-sessions', urlSessionId);
       const unsubscribe = onSnapshot(sessionRef, (doc) => {
         if (doc.exists()) {
           const data = doc.data();
@@ -83,7 +83,7 @@ export default function RestaurantPlanner() {
     }
 
     try {
-      const sessionRef = doc(db, 'sessions', sessionId);
+      const sessionRef = doc(db, 'restaurant-sessions', sessionId);
       const sessionSnap = await (await import('firebase/firestore')).getDoc(sessionRef);
       const currentRsvps = sessionSnap.data()?.rsvps || [];
 
@@ -147,7 +147,7 @@ export default function RestaurantPlanner() {
         synthesis: ''
       };
 
-      const docRef = await addDoc(collection(db, 'sessions'), sessionData);
+      const docRef = await addDoc(collection(db, 'restaurant-sessions'), sessionData);
       const newSessionId = docRef.id;
       setSessionId(newSessionId);
       setSession(sessionData);
@@ -181,7 +181,7 @@ export default function RestaurantPlanner() {
     setIsSubmitting(true);
 
     try {
-      const sessionRef = doc(db, 'sessions', sessionId);
+      const sessionRef = doc(db, 'restaurant-sessions', sessionId);
       const sessionSnap = await (await import('firebase/firestore')).getDoc(sessionRef);
       const sessionData = sessionSnap.data();
       const currentSubmissions = sessionData?.submissions || [];
@@ -375,7 +375,7 @@ Provide 2-3 options, with the BEST option first.`;
         setRecommendations(recommendationText);
         
         // Save to Firebase
-        const sessionRef = doc(db, 'sessions', sessionId);
+        const sessionRef = doc(db, 'restaurant-sessions', sessionId);
         await (await import('firebase/firestore')).updateDoc(sessionRef, {
           synthesis: recommendationText,
           synthesisGeneratedAt: new Date().toISOString()
