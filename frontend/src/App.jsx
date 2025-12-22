@@ -37,7 +37,6 @@ const currentPath = window.location.pathname;
   const [title, setTitle] = useState('');
   const [context, setContext] = useState('');
   const [mcName, setMcName] = useState('');
-  const [mcEmail, setMcEmail] = useState('');
   const [mcRole, setMcRole] = useState('Project Lead');
   const [mcCustomRole, setMcCustomRole] = useState('');
   const [selectedRoles, setSelectedRoles] = useState([]);
@@ -298,7 +297,7 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
 
   const createSession = async () => {
     const totalRoles = selectedRoles.length + customRoles.length;
-    if (!title.trim() || !context.trim() || !mcName.trim() || !mcEmail.trim() || totalRoles === 0) {
+    if (!title.trim() || !context.trim() || !mcName.trim() || totalRoles === 0) {
       alert('Please fill all required fields and select at least one role');
       return;
     }
@@ -316,7 +315,6 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
         context,
         aiAnalysis,
         mcName,
-        mcEmail,
         mcRole: finalRole,
         selectedRoles: [...selectedRoles, ...customRoles],
         uploadedDocuments: uploadedFiles,
@@ -362,7 +360,6 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
     setTitle('');
     setContext('');
     setMcName('');
-    setMcEmail('');
     setMcRole('Project Lead');
     setMcCustomRole('');
     setSelectedRoles([]);
@@ -530,7 +527,7 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
             />
           </div>
 
-          {/* Name and Email Row */}
+          {/* Name and Role Row */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div>
               <label className="block text-sm font-semibold text-slate-200 mb-2">
@@ -546,33 +543,18 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
             </div>
             <div>
               <label className="block text-sm font-semibold text-slate-200 mb-2">
-                Your Email
+                Your Role
               </label>
-              <input
-                type="email"
-                value={mcEmail}
-                onChange={(e) => setMcEmail(e.target.value)}
-                placeholder="alex@company.com"
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          {/* Your Role */}
-          <div className="mb-6">
-            <label className="block text-sm font-semibold text-slate-200 mb-2">
-              Your Role
-            </label>
-            <select
-              value={mcRole}
-              onChange={(e) => setMcRole(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            >
-              {roleOptions.map(role => (
-                <option key={role} value={role}>{role}</option>
-              ))}
+              <select
+                value={mcRole}
+                onChange={(e) => setMcRole(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              >
+                {roleOptions.map(role => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
             </select>
-            
+           </div> 
             {mcRole === 'Other' && (
               <input
                 type="text"
@@ -797,9 +779,9 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
           {/* Create Session Button */}
           <button
             onClick={createSession}
-            disabled={!title.trim() || !context.trim() || !mcName.trim() || !mcEmail.trim() || (selectedRoles.length === 0 && customRoles.length === 0) || (mcRole === 'Other' && !mcCustomRole.trim())}
+            disabled={!title.trim() || !context.trim() || !mcName.trim() || (selectedRoles.length === 0 && customRoles.length === 0) || (mcRole === 'Other' && !mcCustomRole.trim())}
             className={`w-full py-4 rounded-lg font-bold text-lg transition-colors ${
-              !title.trim() || !context.trim() || !mcName.trim() || !mcEmail.trim() || (selectedRoles.length === 0 && customRoles.length === 0) || (mcRole === 'Other' && !mcCustomRole.trim())
+              !title.trim() || !context.trim() || !mcName.trim() || (selectedRoles.length === 0 && customRoles.length === 0) || (mcRole === 'Other' && !mcCustomRole.trim())
                 ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
                 : 'bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700'
             }`}
