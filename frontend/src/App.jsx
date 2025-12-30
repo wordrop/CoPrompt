@@ -8,6 +8,8 @@ import MCDashboard from './MCDashboard';
 import RestaurantPlanner from './RestaurantPlanner';
 import Contact from './Contact';
 import Privacy from './Privacy';
+import SessionDashboard from './SessionDashboard';
+import { saveSession, checkRateLimit, trackEvent } from './sessionStorage';
 
 function App() {
 const currentPath = window.location.pathname;
@@ -296,6 +298,13 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
   };
 
   const createSession = async () => {
+// Check rate limit
+    const rateLimit = checkRateLimit();
+    if (!rateLimit.allowed) {
+      const resetDate = new Date(rateLimit.resetTime);
+      alert(`You've reached the limit of ${rateLimit.limit} sessions per 24 hours. Your limit resets at ${resetDate.toLocaleTimeString()}. This helps us prevent abuse while keeping CoPrompt free for everyone!`);
+      return;
+    }
     const totalRoles = selectedRoles.length + customRoles.length;
     if (!title.trim() || !context.trim() || !mcName.trim() || totalRoles === 0) {
       alert('Please fill all required fields and select at least one role');
@@ -337,6 +346,13 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
         links[role] = `${baseUrl}?session=${newSessionId}&role=${encodeURIComponent(role)}`;
       });
       setInviteLinks(links);
+// Save to localStorage for dashboard
+      saveSession({
+        sessionId: newSessionId,
+        title,
+        mcName,
+        selectedRoles: [...selectedRoles, ...customRoles]
+      });
 
       // Switch to dashboard view
       setMode('mc-dashboard');
@@ -353,27 +369,21 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
     alert(`Copied invite link for ${role}!`);
   };
 
-  const resetAndGoHome = () => {
-    setMode('mc-create');
-    setSessionId(null);
-    setSession(null);
-    setTitle('');
-    setContext('');
-    setMcName('');
-    setMcRole('Project Lead');
-    setMcCustomRole('');
-    setSelectedRoles([]);
-    setCustomRoles([]);        // NEW
-    setCustomRoleInput('');    // NEW
-    setCustomRoleError('');    // NEW
-    setUploadedFiles([]);
-    setIsUploadingFiles(false);    
-    setAiAnalysis('');
-    setInviteLinks({});
-    setError(null);
-    window.history.pushState({}, '', window.location.pathname);
+const resetAndGoHome = () => {
+    window.location.href = '/?create=true';
   };
 
+// Session Dashboard View
+  if (mode === 'session-list') {
+    return (
+      <SessionDashboard 
+        onNavigateToSession={(sessionId) => {
+          window.location.href = `/?session=${sessionId}`;
+        }}
+        onCreateNew={resetAndGoHome}
+      />
+    );
+  }
   // Collaborator view
   if (mode === 'collaborator') {
     return <CollaboratorRoom sessionId={sessionId} />;
@@ -403,7 +413,7 @@ Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
             <h1 className="text-xl font-bold">CoPrompt</h1>
             <div className="flex gap-4">
               <button
-                onClick={() => setMode('mc-dashboard')}
+                onClick={() => setMode('session-list')}
                 className="px-4 py-2 bg-white/20 rounded hover:bg-white/30 transition-colors"
               >
                 📊 Dashboard
