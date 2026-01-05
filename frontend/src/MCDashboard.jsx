@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from './firebase';
+import { updateSessionStatus } from './sessionStorage';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 
 // Add this helper component after imports, before the main export
@@ -171,6 +172,9 @@ export default function MCDashboard({ sessionId, session }) {
       await updateDoc(sessionRef, updateData);
       
       console.log('✅ Firebase updated successfully!');
+      console.log('🔄 Updating localStorage status for:', sessionId);
+      updateSessionStatus(sessionId, 'finalized');
+      console.log('✅ localStorage update called');
       setSessionStatus('finalized');
       alert('✅ Decision finalized successfully!');
     } catch (error) {

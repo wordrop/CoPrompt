@@ -9,7 +9,7 @@ import RestaurantPlanner from './RestaurantPlanner';
 import Contact from './Contact';
 import Privacy from './Privacy';
 import SessionDashboard from './SessionDashboard';
-import { saveSession, checkRateLimit, trackEvent } from './sessionStorage';
+import { saveSession, checkRateLimit, trackEvent, getAllSessions } from './sessionStorage';
 
 function App() {
 const currentPath = window.location.pathname;
@@ -32,6 +32,7 @@ const currentPath = window.location.pathname;
   
   const [mode, setMode] = useState('mc-create'); // 'mc-create', 'mc-dashboard', 'collaborator'
   const [sessionId, setSessionId] = useState(null);
+  const [sessionCount, setSessionCount] = useState(0);
   const [session, setSession] = useState(null);
   const [inviteLinks, setInviteLinks] = useState({});
 
@@ -80,6 +81,11 @@ const currentPath = window.location.pathname;
       setSessionId(urlSessionId);
     }
   }, []);
+// Update session count for Dashboard button
+  useEffect(() => {
+    const sessions = getAllSessions();
+    setSessionCount(sessions.length);
+  }, [mode]);
 
   const toggleRole = (role) => {
     setSelectedRoles(prev => 
@@ -416,7 +422,7 @@ const resetAndGoHome = () => {
                 onClick={() => setMode('session-list')}
                 className="px-4 py-2 bg-white/20 rounded hover:bg-white/30 transition-colors"
               >
-                📊 Dashboard
+                📊 Dashboard {sessionCount > 0 && `(${sessionCount})`}
               </button>
               <button
                 onClick={resetAndGoHome}
