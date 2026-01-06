@@ -94,10 +94,10 @@ const Landing = ({ onStartSession }) => {
               CoPrompt
             </h2>
             <p className="text-3xl md:text-4xl font-semibold text-blue-600 mb-8">
-              Where Human Collaboration Meets AI Intelligence
+             Collaboration Reimagined
             </p>
             <p className="text-xl text-slate-600 mb-12 leading-relaxed max-w-3xl mx-auto">
-              CoPrompt is a collaborative workspace where one single AI works with your entire team. It challenges each collaborator's thinking, elevates all perspectives with full context, then synthesizes everything into one actionable recommendation. Better decisions—faster and smarter.
+              For the first time, AI doesn't just respond—it facilitates an entire team. One persistent intelligence that participates with every stakeholder, challenges their thinking, strengthens every perspective, and synthesizes all inputs with complete understanding. This is collaboration reimagined.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button 
