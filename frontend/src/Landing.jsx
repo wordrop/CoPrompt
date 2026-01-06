@@ -94,10 +94,10 @@ const Landing = ({ onStartSession }) => {
               CoPrompt
             </h2>
             <p className="text-3xl md:text-4xl font-semibold text-blue-600 mb-8">
-              Where Teams and AI Decide Together
+              Where Human Collaboration Meets AI Intelligence
             </p>
             <p className="text-xl text-slate-600 mb-12 leading-relaxed max-w-3xl mx-auto">
-              Not another chat with AI. CoPrompt is a shared decision workspace where every collaborator contributes their expertise — and AI synthesizes it all into one clear, actionable decision.
+              CoPrompt is a collaborative workspace where one single AI works with your entire team. It challenges each collaborator's thinking, elevates all perspectives with full context, then synthesizes everything into one actionable recommendation. Better decisions—faster and smarter.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button 
