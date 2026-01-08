@@ -158,160 +158,187 @@ const Landing = ({ onStartSession }) => {
       </section>
 
       {/* How It Works Section */}
-      <section id="how-section" className="py-20 bg-slate-50 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h3 className="text-4xl font-bold text-slate-900 mb-4">How It Works</h3>
-            <p className="text-xl text-slate-600">Four simple steps to better decisions</p>
+<section id="how-section" className="py-20 bg-slate-50 px-4 sm:px-6 lg:px-8">
+  <div className="max-w-6xl mx-auto">
+    <div className="text-center mb-16">
+      <h3 className="text-4xl font-bold text-slate-900 mb-4">How It Works</h3>
+      <p className="text-xl text-slate-600">One AI. Five Steps. Complete Understanding.</p>
+    </div>
+
+    <div className="space-y-16">
+      {/* Step 1: Set the Context */}
+      <div className="grid md:grid-cols-2 gap-12 items-center">
+        <div>
+          <div className="inline-block px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold mb-4">
+            STEP 1
           </div>
-
-          <div className="space-y-16">
-            {/* Step 1 */}
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div>
-                <div className="inline-block px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold mb-4">
-                  STEP 1
-                </div>
-                <h4 className="text-2xl font-bold text-slate-900 mb-4">Start a Session</h4>
-                <p className="text-lg text-slate-600 leading-relaxed">
-                  Describe what you're working on — hiring a PM, evaluating a vendor, reviewing a risk event, or any complex decision requiring multiple perspectives.
-                </p>
-              </div>
-              <div className="bg-white rounded-xl p-8 shadow-lg">
-                <div className="space-y-3">
-                  <div className="h-3 bg-slate-200 rounded w-3/4"></div>
-                  <div className="h-3 bg-slate-200 rounded w-full"></div>
-                  <div className="h-3 bg-slate-200 rounded w-5/6"></div>
-                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                    <div className="text-sm font-semibold text-blue-900">Decision Context</div>
-                  </div>
-                </div>
-              </div>
+          <h4 className="text-2xl font-bold text-slate-900 mb-4">Set the Context</h4>
+          <p className="text-lg text-slate-600 leading-relaxed">
+            Describe what you're working on—a hiring decision, responding to an RFP, vendor evaluation, strategic decisioning, reviewing a risk event, or any initiative requiring team input. AI immediately analyzes your context, asks clarifying questions, and helps you articulate what matters most. Upload supporting documents-job descriptions, candidate profile, RFP artifacts, Risk framework, budget and business plan tables- AI extracts and incorporates when generating  deeper analysis.
+          </p>
+        </div>
+        <div className="bg-white rounded-xl p-8 shadow-lg">
+          <div className="space-y-3">
+            <div className="h-3 bg-slate-200 rounded w-3/4"></div>
+            <div className="h-3 bg-slate-200 rounded w-full"></div>
+            <div className="h-3 bg-slate-200 rounded w-5/6"></div>
+            <div className="mt-6 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+              <div className="text-sm font-semibold text-blue-900">AI Analysis</div>
+              <div className="text-xs text-slate-600 mt-1">Understanding your context...</div>
             </div>
-
-            {/* Step 2 */}
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div className="order-2 md:order-1">
-                <div className="bg-white rounded-xl p-8 shadow-lg">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
-                      <div className="w-8 h-8 bg-blue-500 rounded-full"></div>
-                      <div>
-                        <div className="text-sm font-semibold text-slate-900">HR</div>
-                        <div className="text-xs text-slate-500">Culture fit assessment</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
-                      <div className="w-8 h-8 bg-green-500 rounded-full"></div>
-                      <div>
-                        <div className="text-sm font-semibold text-slate-900">Finance</div>
-                        <div className="text-xs text-slate-500">Budget impact analysis</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg border-l-4 border-purple-500">
-                      <div className="w-8 h-8 bg-purple-500 rounded-full"></div>
-                      <div>
-                        <div className="text-sm font-semibold text-slate-900">Engineering</div>
-                        <div className="text-xs text-slate-500">Technical evaluation</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="order-1 md:order-2">
-                <div className="inline-block px-4 py-2 bg-green-100 text-green-700 rounded-full text-sm font-semibold mb-4">
-                  STEP 2
-                </div>
-                <h4 className="text-2xl font-bold text-slate-900 mb-4">Add Collaborators & Roles</h4>
-                <p className="text-lg text-slate-600 leading-relaxed">
-                  Invite HR, Finance, Engineering, Risk, Legal — or create custom roles. Each collaborator gets a structured space to submit their input, assisted by the same AI.
-                </p>
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div>
-                <div className="inline-block px-4 py-2 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold mb-4">
-                  STEP 3
-                </div>
-                <h4 className="text-2xl font-bold text-slate-900 mb-4">Upload Documents (Optional)</h4>
-                <p className="text-lg text-slate-600 leading-relaxed">
-                  Resumes, job descriptions, RFPs, financials, board packs — PDF, DOCX, or XLSX. AI automatically extracts context from all uploaded materials.
-                </p>
-              </div>
-              <div className="bg-white rounded-xl p-8 shadow-lg">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-2xl">📕</div>
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900">Resume_Candidate.pdf</div>
-                      <div className="text-xs text-slate-500">245 KB</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-2xl">📘</div>
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900">Job_Description.docx</div>
-                      <div className="text-xs text-slate-500">89 KB</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-2xl">📊</div>
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900">Salary_Budget.xlsx</div>
-                      <div className="text-xs text-slate-500">156 KB</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Step 4 */}
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div className="order-2 md:order-1">
-                <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-8 shadow-lg border-2 border-blue-200">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
-                      AI
-                    </div>
-                    <div className="text-lg font-bold text-slate-900">Synthesis Generated</div>
-                  </div>
-                  <div className="space-y-3 text-sm text-slate-700">
-                    <div className="font-semibold text-slate-900">Decision Summary:</div>
-                    <div>✓ All documents analyzed</div>
-                    <div>✓ All stakeholder inputs considered</div>
-                    <div>✓ Criteria evaluated</div>
-                    <div>✓ Role-based insights integrated</div>
-                    <div className="mt-4 pt-4 border-t border-blue-200">
-                      <span className="font-semibold text-blue-900">Result:</span>
-                      <span className="ml-2">Single, balanced, audit-ready decision summary</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="order-1 md:order-2">
-                <div className="inline-block px-4 py-2 bg-orange-100 text-orange-700 rounded-full text-sm font-semibold mb-4">
-                  STEP 4
-                </div>
-                <h4 className="text-2xl font-bold text-slate-900 mb-4">AI Synthesis</h4>
-                <p className="text-lg text-slate-600 leading-relaxed mb-4">
-                  CoPrompt's AI Agent analyzes all documents, stakeholder inputs, your criteria, and role-based insights...
-                </p>
-                <p className="text-lg font-semibold text-blue-600">
-                  ...and produces a single, balanced, audit-ready decision summary.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-16 text-center">
-            <p className="text-2xl font-bold text-slate-900">
-              One workspace. <span className="text-blue-600">Many perspectives.</span> One synthesis.
-            </p>
           </div>
         </div>
-      </section>
+      </div>
+
+      {/* Step 2: Invite Stakeholders */}
+      <div className="grid md:grid-cols-2 gap-12 items-center">
+        <div className="order-2 md:order-1">
+          <div className="bg-white rounded-xl p-8 shadow-lg">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                <div className="w-8 h-8 bg-blue-500 rounded-full"></div>
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">HR</div>
+                  <div className="text-xs text-slate-500">Culture & fit</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
+                <div className="w-8 h-8 bg-green-500 rounded-full"></div>
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">Finance</div>
+                  <div className="text-xs text-slate-500">Budget impact</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg border-l-4 border-purple-500">
+                <div className="w-8 h-8 bg-purple-500 rounded-full"></div>
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">Engineering</div>
+                  <div className="text-xs text-slate-500">Technical review</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="order-1 md:order-2">
+          <div className="inline-block px-4 py-2 bg-green-100 text-green-700 rounded-full text-sm font-semibold mb-4">
+            STEP 2
+          </div>
+          <h4 className="text-2xl font-bold text-slate-900 mb-4">Invite Stakeholders</h4>
+          <p className="text-lg text-slate-600 leading-relaxed">
+            Select roles—HR, Finance, Engineering, Risk, Legal—or create custom ones. Each collaborator receives your AI-enhanced framing and gets their own workspace. The same AI that helped you now works with them.
+          </p>
+        </div>
+      </div>
+
+      {/* Step 3: Gather Perspectives */}
+      <div className="grid md:grid-cols-2 gap-12 items-center">
+        <div>
+          <div className="inline-block px-4 py-2 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold mb-4">
+            STEP 3
+          </div>
+          <h4 className="text-2xl font-bold text-slate-900 mb-4">Gather Perspectives</h4>
+          <p className="text-lg text-slate-600 leading-relaxed">
+            Each team member contributes their analysis. The persistent AI challenges assumptions, asks follow-up questions, and strengthens their thinking—ensuring every input is thorough, specific, and valuable.
+          </p>
+        </div>
+        <div className="bg-white rounded-xl p-8 shadow-lg">
+          <div className="space-y-4">
+            <div className="p-4 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 bg-blue-500 rounded-full"></div>
+                <div className="text-sm font-semibold text-slate-900">HR Input</div>
+              </div>
+              <div className="text-xs text-slate-600">AI: "Can you provide specific examples of culture fit?"</div>
+            </div>
+            <div className="p-4 bg-green-50 rounded-lg border-l-4 border-green-500">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 bg-green-500 rounded-full"></div>
+                <div className="text-sm font-semibold text-slate-900">Finance Input</div>
+              </div>
+              <div className="text-xs text-slate-600">AI: "What's the 3-year cost projection?"</div>
+            </div>
+            <div className="p-4 bg-purple-50 rounded-lg border-l-4 border-purple-500">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 bg-purple-500 rounded-full"></div>
+                <div className="text-sm font-semibold text-slate-900">Engineering Input</div>
+              </div>
+              <div className="text-xs text-slate-600">AI: "Have you considered scalability?"</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Step 4: One Intelligence Synthesizes */}
+      <div className="grid md:grid-cols-2 gap-12 items-center">
+        <div className="order-2 md:order-1">
+          <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-8 shadow-lg border-2 border-blue-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
+                AI
+              </div>
+              <div className="text-lg font-bold text-slate-900">Synthesis Complete</div>
+            </div>
+            <div className="space-y-3 text-sm text-slate-700">
+              <div className="font-semibold text-slate-900">Integrated Analysis:</div>
+              <div>✓ All perspectives considered</div>
+              <div>✓ Full context maintained</div>
+              <div>✓ Conflicts reconciled</div>
+              <div>✓ Recommendations balanced</div>
+              <div className="mt-4 pt-4 border-t border-blue-200">
+                <span className="font-semibold text-blue-900">Result:</span>
+                <span className="ml-2">One clear, actionable recommendation</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="order-1 md:order-2">
+          <div className="inline-block px-4 py-2 bg-orange-100 text-orange-700 rounded-full text-sm font-semibold mb-4">
+            STEP 4
+          </div>
+          <h4 className="text-2xl font-bold text-slate-900 mb-4">One Intelligence Synthesizes</h4>
+          <p className="text-lg text-slate-600 leading-relaxed">
+            The same AI that guided every conversation now synthesizes with complete context—not summarizing separate opinions, but integrating everything it witnessed into one clear, balanced recommendation.
+          </p>
+        </div>
+      </div>
+
+      {/* Step 5: Refine Together */}
+      <div className="grid md:grid-cols-2 gap-12 items-center">
+        <div>
+          <div className="inline-block px-4 py-2 bg-pink-100 text-pink-700 rounded-full text-sm font-semibold mb-4">
+            STEP 5
+          </div>
+          <h4 className="text-2xl font-bold text-slate-900 mb-4">Refine Together</h4>
+          <p className="text-lg text-slate-600 leading-relaxed">
+            Share the synthesis with your team. Collaborators provide feedback, rate the recommendation, and suggest improvements. AI helps you incorporate feedback and re-synthesize. When everyone's aligned, finalize your decision.
+          </p>
+        </div>
+        <div className="bg-white rounded-xl p-8 shadow-lg">
+          <div className="space-y-4">
+            <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+              <div className="text-sm font-semibold text-green-900 mb-1">✓ HR Approved</div>
+              <div className="text-xs text-slate-600">"Great culture fit analysis"</div>
+            </div>
+            <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+              <div className="text-sm font-semibold text-yellow-900 mb-1">⚠ Finance Feedback</div>
+              <div className="text-xs text-slate-600">"Consider longer-term costs"</div>
+            </div>
+            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="text-sm font-semibold text-blue-900 mb-1">🔄 AI Re-synthesis</div>
+              <div className="text-xs text-slate-600">Incorporating feedback...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="mt-16 text-center">
+      <p className="text-2xl font-bold text-slate-900">
+        One workspace. <span className="text-blue-600">One AI.</span> Complete collaboration.
+      </p>
+    </div>
+  </div>
+</section>
 
       {/* What Makes CoPrompt Different */}
       <section className="py-20 bg-white px-4 sm:px-6 lg:px-8">
