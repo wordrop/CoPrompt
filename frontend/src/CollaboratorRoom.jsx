@@ -790,7 +790,7 @@ Build on MC's analysis - add NEW perspective, don't repeat existing points.`;
             📤 Submit your Analysis
           </button>
           <p className="text-xs text-gray-500 text-center mt-2">
-            Once submitted, the {session.mcName} will be able to view your analysis
+            Once submitted, {session.mcName} will be able to view your analysis
           </p>
         </div>
       </div>

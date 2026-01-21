@@ -24,7 +24,7 @@ const Landing = ({ onStartSession }) => {
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-slate-800">CoPrompt</h1>
+              <h1 className="text-2xl font-bold text-slate-800">✨ CoPrompt</h1>
             </div>
             
             {/* Desktop Navigation */}
@@ -91,13 +91,13 @@ const Landing = ({ onStartSession }) => {
         <div className="max-w-7xl mx-auto">
           <div className="text-center max-w-4xl mx-auto">
             <h2 className="text-5xl md:text-6xl font-bold text-slate-900 mb-6 leading-tight">
-              CoPrompt
+              ✨ CoPrompt
             </h2>
             <p className="text-3xl md:text-4xl font-semibold text-blue-600 mb-8">
              Collaboration Reimagined
             </p>
             <p className="text-xl text-slate-600 mb-12 leading-relaxed max-w-3xl mx-auto">
-              For the first time, AI doesn't just respond—it facilitates an entire team. One persistent intelligence that participates with every stakeholder, challenges their thinking, strengthens every perspective, and synthesizes all inputs with complete understanding. This is collaboration reimagined.
+              CoPrompt is an AI-enabled collaborative workspace designed for how real teams think and decide. Unlike chat-based AI, one persistent intelligence facilitates your entire team—engaging every stakeholder, challenging assumptions, strengthening viewpoints, and synthesizing shared intelligence into clear outcomes. This is collaboration, reimagined.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button 
@@ -633,9 +633,9 @@ const Landing = ({ onStartSession }) => {
     <div className="grid md:grid-cols-3 gap-8">
       
       <div>
-        <h3 className="text-xl font-bold mb-4">CoPrompt</h3>
+        <h3 className="text-xl font-bold mb-4">✨ CoPrompt</h3>
         <p className="text-slate-400">
-          Where Teams and AI Decide Together
+          Collaboration Reimagined
         </p>
       </div>
 
