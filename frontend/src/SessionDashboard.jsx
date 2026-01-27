@@ -32,8 +32,20 @@ function SessionDashboard({ onNavigateToSession, onCreateNew }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 shadow-lg">
+{/* Navigation Bar */}
+      <nav className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 shadow-lg">
+        <div className="max-w-4xl mx-auto flex justify-between items-center">
+          <h1 className="text-xl font-bold">✨ CoPrompt</h1>
+          <button
+            onClick={onCreateNew}
+            className="px-4 py-2 bg-white/20 rounded hover:bg-white/30 transition-colors text-sm font-semibold"
+          >
+            ➕ New Session
+          </button>
+        </div>
+      </nav>      
+{/* Header */}
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 pt-0 p-6 shadow-lg">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-3xl font-bold mb-2">📊 My Sessions</h1>
           <p className="text-blue-100">All your collaborative decision sessions in one place</p>

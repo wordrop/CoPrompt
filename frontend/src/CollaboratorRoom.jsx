@@ -357,6 +357,7 @@ Build on MC's analysis - add NEW perspective, don't repeat existing points.`;
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+
         <div className="text-white text-xl">Loading session...</div>
       </div>
     );
@@ -371,46 +372,100 @@ Build on MC's analysis - add NEW perspective, don't repeat existing points.`;
   }
 
   if (hasSubmitted) {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      <div className="max-w-4xl mx-auto py-12 px-6">
+ return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        {/* Navigation Bar */}
+        <nav className="bg-slate-900/50 backdrop-blur-sm border-b border-slate-700 text-white p-4">
+          <div className="max-w-4xl mx-auto">
+            <a 
+              href="/?create=true" 
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xl font-bold hover:text-purple-300 transition-colors cursor-pointer"
+            >
+              ✨ CoPrompt
+            </a>
+          </div>
+        </nav>
+
+        <div className="max-w-4xl mx-auto py-8 px-6">
         
         {/* Finalized Status Banner - Show if session is finalized */}
         {session.status === 'finalized' && (
-          <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl shadow-2xl p-8 mb-8 border-2 border-green-400">
-            <div className="flex items-start gap-4">
-              <span className="text-6xl">🎉</span>
-              <div>
-                <h2 className="text-3xl font-bold text-white mb-3">
-                  Decision Finalized
-                </h2>
-                <p className="text-green-100 text-lg">
-                  This decision has been closed by {session.mcName} on {new Date(session.finalizedAt).toLocaleDateString()}.
-                </p>
-                {session.finalDecision && (
-                  <div className="mt-4 p-4 bg-green-900/30 rounded-lg border border-green-400">
-                    <p className="text-sm font-semibold text-green-200 mb-2">Final Notes from MC:</p>
-                    <p className="text-white whitespace-pre-wrap">{session.finalDecision}</p>
-                  </div>
-                )}
+          <div className="space-y-6 mb-8">
+            {/* Finalization Notice */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl shadow-2xl p-8 border-2 border-green-400">
+              <div className="flex items-start gap-4">
+                <span className="text-6xl">🎉</span>
+                <div>
+                  <h2 className="text-3xl font-bold text-white mb-3">
+                    Decision Finalized
+                  </h2>
+                  <p className="text-green-100 text-lg">
+                    This decision has been closed by {session.mcName} on {new Date(session.finalizedAt).toLocaleDateString()}.
+                  </p>
+                  {session.finalDecision && (
+                    <div className="mt-4 p-4 bg-green-900/30 rounded-lg border border-green-400">
+                      <p className="text-sm font-semibold text-green-200 mb-2">Final Notes from MC:</p>
+                      <p className="text-white whitespace-pre-wrap">{session.finalDecision}</p>
+                    </div>
+                  )}
+                </div>
               </div>
+            </div>
+
+            {/* CTA - Only After Finalization */}
+            <div className="bg-gradient-to-br from-purple-900/40 to-blue-900/40 border border-purple-700 rounded-xl p-8 text-center">
+              <h4 className="text-2xl font-bold text-white mb-3">
+                Want to lead your own collaborative projects?
+              </h4>
+              <p className="text-slate-300 mb-6">
+                Experience the power of AI-facilitated collaboration from the organizer's perspective.
+              </p>
+              <a
+                href="/?create=true"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-bold text-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl"
+              >
+                🚀 Start Your Own Session
+              </a>
             </div>
           </div>
         )}
 
         {/* Submission Confirmation - Show if NOT finalized yet */}
         {session.status !== 'finalized' && (
-          <div className="bg-white rounded-lg shadow-xl p-8 text-center mb-8">
-            <div className="text-6xl mb-4">✅</div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              Thank you, {collaboratorName}!
-            </h1>
-            <p className="text-lg text-gray-600 mb-6">
-              Your {role} analysis has been successfully submitted.
-            </p>
-            <p className="text-gray-500">
-              {session.mcName} will now be able to view your contribution in their dashboard.
-            </p>
+          <div className="space-y-6">
+            {/* Success Message */}
+            <div className="bg-white rounded-lg shadow-xl p-8 text-center">
+              <div className="text-6xl mb-4">✅</div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-4">
+                Thank you, {collaboratorName}!
+              </h1>
+              <p className="text-lg text-gray-600 mb-6">
+                Your {role} analysis has been successfully submitted.
+              </p>
+              <p className="text-gray-500">
+                {session.mcName} will now be able to view your contribution in their dashboard.
+              </p>
+            </div>
+
+            {/* CTA for Collaborators to Start Their Own */}
+            <div className="bg-gradient-to-br from-purple-900/40 to-blue-900/40 border border-purple-700 rounded-xl p-8 text-center">
+              <h4 className="text-2xl font-bold text-white mb-3">
+                Want to lead your own collaborative projects?
+              </h4>
+              <p className="text-slate-300 mb-6">
+                Experience the power of AI-facilitated collaboration from the organizer's perspective.
+              </p>
+              <a
+                href="/?create=true"
+                className="inline-block px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-bold text-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl"
+              >
+                🚀 Start Your Own Session
+              </a>
+            </div>
           </div>
         )}
 
@@ -523,8 +578,22 @@ Build on MC's analysis - add NEW perspective, don't repeat existing points.`;
 
   const selectedRole = role || 'Advisor';
 
-  return (
+return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+      {/* Navigation Bar */}
+      <nav className="bg-white/80 backdrop-blur-sm border-b border-gray-200 p-4">
+        <div className="max-w-4xl mx-auto">
+          <a 
+            href="/?create=true" 
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xl font-bold text-gray-900 hover:text-purple-600 transition-colors cursor-pointer"
+          >
+            ✨ CoPrompt
+          </a>
+        </div>
+      </nav>
+
       <div className="max-w-4xl mx-auto py-8 px-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
