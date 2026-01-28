@@ -93,11 +93,15 @@ const Landing = ({ onStartSession }) => {
             <h2 className="text-5xl md:text-6xl font-bold text-slate-900 mb-6 leading-tight">
               ✨ CoPrompt
             </h2>
+{/* Benefit-focused tagline */}
+            <p className="text-lg md:text-xl text-slate-600 font-medium mb-4">
+              Make confident decisions faster with your team's collective intelligence.
+            </p>
             <p className="text-3xl md:text-4xl font-semibold text-blue-600 mb-8">
              Collaboration Reimagined
             </p>
             <p className="text-xl text-slate-600 mb-12 leading-relaxed max-w-3xl mx-auto">
-              CoPrompt is an AI-enabled collaborative workspace designed for how real teams think and decide. Unlike chat-based AI, one persistent intelligence facilitates your entire team—engaging every stakeholder, challenging assumptions, strengthening viewpoints, and synthesizing shared intelligence into clear outcomes. This is collaboration, reimagined.
+              CoPrompt is an AI facilitator designed for how real teams collaborate and decide. Unlike chat-based AI, one persistent intelligence facilitates your entire team—engaging every stakeholder, challenging assumptions, strengthening viewpoints, and synthesizing shared intelligence into clear outcomes. This is collaboration, reimagined.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button 
@@ -340,61 +344,84 @@ const Landing = ({ onStartSession }) => {
   </div>
 </section>
 
-      {/* What Makes CoPrompt Different */}
+      {/* Why Teams Choose CoPrompt - Benefits Focus */}
       <section className="py-20 bg-white px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
+          {/* Section Header */}
           <div className="text-center mb-16">
-            <h3 className="text-4xl font-bold text-slate-900 mb-4">What Makes CoPrompt Different</h3>
+            <h3 className="text-4xl font-bold text-slate-900 mb-4">
+              Why Teams Choose CoPrompt
+            </h3>
+            <p className="text-xl text-slate-600 max-w-3xl mx-auto">
+              Not just another collaboration tool. CoPrompt delivers outcomes that traditional workflows can't match.
+            </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="p-6 rounded-xl bg-gradient-to-br from-blue-50 to-white border border-blue-100">
-              <div className="text-4xl mb-4">✨</div>
-              <h4 className="text-xl font-bold text-slate-900 mb-3">AI-Powered</h4>
-              <p className="text-slate-600">
-                Your shared AI agent analyzes documents, inputs, and perspectives — not just prompts.
+          {/* Three Value Props - Benefits First */}
+          <div className="grid md:grid-cols-3 gap-8">
+            
+            {/* Benefit 1: Better Decisions from Better Input */}
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-8 rounded-xl border border-blue-100">
+              <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-6">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <h4 className="text-xl font-bold text-slate-900 mb-3">
+                Better Decisions from Better Input
+              </h4>
+              <p className="text-slate-700 mb-4">
+                CoPrompt's AI doesn't just collect opinions—it strengthens each perspective before synthesis. Every stakeholder is challenged, clarified, and elevated.
+              </p>
+              <p className="text-sm text-slate-600 italic">
+                Result: Decisions based on thoroughly-vetted viewpoints, not surface-level reactions.
               </p>
             </div>
 
-            <div className="p-6 rounded-xl bg-gradient-to-br from-green-50 to-white border border-green-100">
-              <div className="text-4xl mb-4">🔄</div>
-              <h4 className="text-xl font-bold text-slate-900 mb-3">Real-Time Collaboration</h4>
-              <p className="text-slate-600">
-                Live updates as collaborators contribute their analysis.
+            {/* Benefit 2: Never Repeat Yourself */}
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-8 rounded-xl border border-purple-100">
+              <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-6">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <h4 className="text-xl font-bold text-slate-900 mb-3">
+                Never Repeat Yourself. Never Lose Context.
+              </h4>
+              <p className="text-slate-700 mb-4">
+                One persistent AI participates in every conversation—from initial context to final synthesis. No information loss, no re-explaining, seamless continuity.
+              </p>
+              <p className="text-sm text-slate-600 italic">
+                Result: Hours saved on "bringing people up to speed" and "what did they mean by that?"
               </p>
             </div>
 
-            <div className="p-6 rounded-xl bg-gradient-to-br from-purple-50 to-white border border-purple-100">
-              <div className="text-4xl mb-4">👥</div>
-              <h4 className="text-xl font-bold text-slate-900 mb-3">Role-Based Inputs</h4>
-              <p className="text-slate-600">
-                Each collaborator brings domain expertise — HR, Risk, Product, Legal, Finance, Engineering.
+            {/* Benefit 3: Catch Blind Spots */}
+            <div className="bg-gradient-to-br from-green-50 to-teal-50 p-8 rounded-xl border border-green-100">
+              <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center mb-6">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </div>
+              <h4 className="text-xl font-bold text-slate-900 mb-3">
+                Catch Blind Spots Before They Cost You
+              </h4>
+              <p className="text-slate-700 mb-4">
+                Domain-specific guidance embedded in every module. For hiring: bias detection. For risk: root cause analysis. For strategy: assumption testing.
+              </p>
+              <p className="text-sm text-slate-600 italic">
+                Result: The AI asks the critical questions you forgot to ask—before you commit.
               </p>
             </div>
 
-            <div className="p-6 rounded-xl bg-gradient-to-br from-orange-50 to-white border border-orange-100">
-              <div className="text-4xl mb-4">📄</div>
-              <h4 className="text-xl font-bold text-slate-900 mb-3">Document Intelligence</h4>
-              <p className="text-slate-600">
-                Upload PDFs, DOCX, XLSX, resumes, JDs, RFPs — AI extracts context automatically.
-              </p>
-            </div>
+          </div>
 
-            <div className="p-6 rounded-xl bg-gradient-to-br from-red-50 to-white border border-red-100">
-              <div className="text-4xl mb-4">📋</div>
-              <h4 className="text-xl font-bold text-slate-900 mb-3">Structured Decisions</h4>
-              <p className="text-slate-600">
-                No more unstructured notes and long meetings. Clear, defendable outcomes.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-xl bg-gradient-to-br from-indigo-50 to-white border border-indigo-100">
-              <div className="text-4xl mb-4">🔍</div>
-              <h4 className="text-xl font-bold text-slate-900 mb-3">Full Audit Trail</h4>
-              <p className="text-slate-600">
-                Every input, every perspective, every version — preserved and traceable.
-              </p>
-            </div>
+          {/* Bottom Reinforcement */}
+          <div className="text-center mt-12 pt-8 border-t border-slate-200">
+            <p className="text-lg text-slate-600">
+              Unlike chat-based AI that responds to prompts, CoPrompt facilitates your entire decision process.
+            </p>
           </div>
         </div>
       </section>
