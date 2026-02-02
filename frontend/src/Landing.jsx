@@ -567,7 +567,136 @@ const Landing = ({ onStartSession }) => {
           </div>
         </div>
       </section>
+{/* Built for Enterprise Trust */}
+<section className="py-20 bg-slate-900 px-4 sm:px-6 lg:px-8">
+  <div className="max-w-6xl mx-auto">
+    {/* Section Header */}
+    <div className="text-center mb-16">
+      <h3 className="text-4xl font-bold text-white mb-4">
+        Built for Enterprise Trust
+      </h3>
+      <p className="text-xl text-slate-300 max-w-3xl mx-auto">
+        Security, transparency, and reliability at every step.
+      </p>
+    </div>
 
+    {/* Four Trust Pillars */}
+    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+      
+      {/* Trust Signal 1: Honest AI */}
+      <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 hover:border-slate-600 transition-colors">
+        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center mb-4">
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h4 className="text-lg font-bold text-white mb-3">
+          Honest AI
+        </h4>
+        <p className="text-sm text-slate-300 leading-relaxed">
+          Our AI explicitly states when it's uncertain or lacks information. No hallucinations, no made-up facts—just clear, reliable analysis you can trust.
+        </p>
+      </div>
+
+      {/* Trust Signal 2: Complete Audit Trail */}
+      <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 hover:border-slate-600 transition-colors">
+        <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center mb-4">
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <h4 className="text-lg font-bold text-white mb-3">
+          Full Audit Trail
+        </h4>
+        <p className="text-sm text-slate-300 leading-relaxed">
+          Every input, every perspective, every synthesis iteration is preserved. Defend your decisions with complete documentation and traceability.
+        </p>
+      </div>
+
+      {/* Trust Signal 3: Your Data, Your Control */}
+      <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 hover:border-slate-600 transition-colors">
+        <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-lg flex items-center justify-center mb-4">
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        </div>
+        <h4 className="text-lg font-bold text-white mb-3">
+          Your Data, Your Control
+        </h4>
+        <p className="text-sm text-slate-300 leading-relaxed">
+          We never train AI models on your data. Your decisions, documents, and conversations remain private and confidential. You own your data, period.
+        </p>
+      </div>
+
+      {/* Trust Signal 4: Enterprise Security */}
+      <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 hover:border-slate-600 transition-colors">
+        <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-600 rounded-lg flex items-center justify-center mb-4">
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+        </div>
+        <h4 className="text-lg font-bold text-white mb-3">
+          Enterprise Security
+        </h4>
+        <p className="text-sm text-slate-300 leading-relaxed">
+          Data encryption in transit and at rest. Role-based access controls. SOC 2 Type II compliance in progress. Built for organizations that take security seriously.
+        </p>
+      </div>
+
+    </div>
+
+    {/* Additional Trust Elements */}
+    <div className="mt-12 grid md:grid-cols-3 gap-6">
+      
+      {/* Trust Element 1: No Lock-in */}
+      <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
+        <div className="flex items-start">
+          <div className="text-2xl mr-3">📤</div>
+          <div>
+            <h5 className="font-semibold text-white mb-2">Export Anytime</h5>
+            <p className="text-sm text-slate-400">
+              Download all your sessions, analyses, and documents. No lock-in, no proprietary formats.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Trust Element 2: Transparent AI */}
+      <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
+        <div className="flex items-start">
+          <div className="text-2xl mr-3">🔍</div>
+          <div>
+            <h5 className="font-semibold text-white mb-2">See How AI Thinks</h5>
+            <p className="text-sm text-slate-400">
+              AI explains its reasoning at every step. No black box decisions—you understand how conclusions are reached.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Trust Element 3: Human in Control */}
+      <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
+        <div className="flex items-start">
+          <div className="text-2xl mr-3">🎯</div>
+          <div>
+            <h5 className="font-semibold text-white mb-2">You Decide, AI Assists</h5>
+            <p className="text-sm text-slate-400">
+              CoPrompt facilitates and strengthens your team's thinking—it doesn't replace human judgment.
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    {/* Bottom Statement */}
+    <div className="mt-12 text-center">
+      <p className="text-slate-400 text-sm">
+        Questions about security, compliance, or data handling? <a href="/contact" className="text-indigo-400 hover:text-indigo-300 underline">Contact us</a> for detailed documentation.
+      </p>
+    </div>
+  </div>
+</section>
       {/* Demo CTA Section */}
       <section id="demo-section" className="py-20 bg-gradient-to-br from-blue-600 to-blue-700 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
