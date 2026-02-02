@@ -178,7 +178,7 @@ const Landing = ({ onStartSession }) => {
           </div>
           <h4 className="text-2xl font-bold text-slate-900 mb-4">Set the Context</h4>
           <p className="text-lg text-slate-600 leading-relaxed">
-            Describe what you're working on—a hiring decision, responding to an RFP, vendor evaluation, strategic decisioning, reviewing a risk event, or any initiative requiring team input. AI immediately analyzes your context, asks clarifying questions, and helps you articulate what matters most. Upload supporting documents-job descriptions, candidate profile, RFP artifacts, Risk framework, budget and business plan tables- AI extracts and incorporates when generating  deeper analysis.
+            Describe what you’re working on—hiring, an RFP response, vendor evaluation, a strategic decision, or a risk review. CoPrompt analyzes the context, asks clarifying questions, and helps surface what matters most. Upload supporting material — job descriptions, candidate profiles, RFPs, risk framework, budgets — and CoPrompt extracts the signal and incorporates it into deeper, shared analysis.
           </p>
         </div>
         <div className="bg-white rounded-xl p-8 shadow-lg">
@@ -229,7 +229,7 @@ const Landing = ({ onStartSession }) => {
           </div>
           <h4 className="text-2xl font-bold text-slate-900 mb-4">Invite Stakeholders</h4>
           <p className="text-lg text-slate-600 leading-relaxed">
-            Select roles—HR, Finance, Engineering, Risk, Legal—or create custom ones. Each collaborator receives your AI-enhanced framing and gets their own workspace. The same AI that helped you now works with them.
+            Select roles—HR, Finance, Engineering, Risk (1LOD and Controls Team), Legal—or create custom ones. Each collaborator receives your AI-enhanced framing and gets their own workspace. The same AI that helped you now works with them.
           </p>
         </div>
       </div>
