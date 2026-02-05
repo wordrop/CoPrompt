@@ -1,3 +1,4 @@
+import CoPromptLogo from './CoPromptLogo';
 import React, { useState } from 'react';
 
 const Landing = ({ onStartSession }) => {
@@ -23,9 +24,10 @@ const Landing = ({ onStartSession }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-slate-800">✨ CoPrompt</h1>
-            </div>
+            <div className="flex items-center gap-2">
+  <CoPromptLogo size={28} />
+  <h1 className="text-2xl font-bold text-slate-800">CoPrompt</h1>
+</div>
             
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
@@ -90,9 +92,12 @@ const Landing = ({ onStartSession }) => {
       <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-slate-50 to-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center max-w-4xl mx-auto">
-            <h2 className="text-5xl md:text-6xl font-bold text-slate-900 mb-6 leading-tight">
-              ✨ CoPrompt
-            </h2>
+            <div className="flex items-center justify-center gap-4 mb-6">
+  <CoPromptLogo size={72} />
+  <h2 className="text-5xl md:text-6xl font-bold text-slate-900 leading-tight">
+    CoPrompt
+  </h2>
+</div>
 {/* Benefit-focused tagline */}
             <p className="text-lg md:text-xl text-slate-600 font-medium mb-4">
               Make confident decisions faster with your team's collective intelligence.
@@ -789,7 +794,10 @@ const Landing = ({ onStartSession }) => {
     <div className="grid md:grid-cols-3 gap-8">
       
       <div>
-        <h3 className="text-xl font-bold mb-4">✨ CoPrompt</h3>
+        <div className="flex items-center gap-2 mb-4">
+  <CoPromptLogo size={24} />
+  <h3 className="text-xl font-bold">CoPrompt</h3>
+</div>
         <p className="text-slate-400">
           Collaboration Reimagined
         </p>

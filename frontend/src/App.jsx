@@ -1,3 +1,4 @@
+import CoPromptLogo from './CoPromptLogo';
 import { useState, useEffect } from 'react';
 import { db, storage } from './firebase';
 import { collection, addDoc, doc, getDoc, onSnapshot } from 'firebase/firestore';
@@ -468,16 +469,19 @@ const resetAndGoHome = () => {
         {/* Header Section */}
         {/* Header with tagline */}
         <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold text-white mb-3">
-            ✨ CoPrompt
-          </h1>
-          <p className="text-xl text-slate-300 mb-2">
-            Where Teams and AI Collaborate
-          </p>
-          <p className="text-base text-slate-400 italic">
-            CoPrompt helps teams turn ideas into insight — collaboratively, instantly, and intelligently.
-          </p>
-        </div>
+  <div className="flex items-center justify-center gap-4 mb-3">
+  <CoPromptLogo size={64} color="#E2E8F0" />
+  <h1 className="text-5xl font-bold text-white">
+    CoPrompt
+  </h1>
+</div>
+  <p className="text-xl text-slate-300 mb-2">
+    Where Teams and AI Collaborate
+  </p>
+  <p className="text-base text-slate-400 italic">
+    CoPrompt helps teams turn ideas into insight — collaboratively, instantly, and intelligently.
+  </p>
+</div>
           
           {/* Description */}
 
