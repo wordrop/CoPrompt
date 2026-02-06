@@ -119,7 +119,7 @@ app.post('/api/claude', async (req, res) => {
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 2500,
+      max_tokens: 8000,
       system: systemPrompt || 'You are a helpful AI assistant.',
       messages: [{ role: 'user', content: prompt }],
     });
@@ -189,8 +189,8 @@ app.post('/api/generate-analysis', async (req, res) => {
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
-      system: 'You are an expert analyst helping to facilitate collaborative research.',
+      max_tokens: 8000,
+      system: 'You are an expert analyst. Follow the user\'s instructions precisely. If they ask for specific format, structure, or scores, provide exactly what they request. Be thorough and comprehensive.',
       messages: [{ role: 'user', content: fullPrompt }],
     });
 
@@ -235,10 +235,11 @@ app.post('/api/generate-collaborator-analysis', async (req, res) => {
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 4000,
-      system: 'You are an expert analyst providing detailed analysis based on specific instructions.',
-      messages: [{ role: 'user', content: fullPrompt }],
-    });
+      max_tokens: 8000,
+      system: 'You are an expert analyst. Follow the user\'s instructions precisely. If they ask for specific format, structure, or scores, provide exactly what they request. Be thorough and comprehensive.',
+  messages: [{ role: 'user', content: fullPrompt }],
+});
+
 
     const responseText = message.content[0].text;
     console.log(`✅ Collaborator analysis generated (${message.usage.output_tokens} tokens)`);
@@ -317,7 +318,7 @@ EXPERT CONTRIBUTIONS:
 
 CREATE A COMPREHENSIVE SYNTHESIS WITH THESE SECTIONS:
 
-## 🤝 AREAS OF AGREEMENT (MAX 150 WORDS)
+## 🤝 AREAS OF AGREEMENT
 
 **Expert consensus on key points:**
 
@@ -330,7 +331,7 @@ CREATE A COMPREHENSIVE SYNTHESIS WITH THESE SECTIONS:
 
 ---
 
-## ⚔️ AREAS OF CONFLICT (MAX 150 WORDS)
+## ⚔️ AREAS OF CONFLICT
 
 **Key disagreements requiring resolution:**
 
@@ -342,7 +343,7 @@ CREATE A COMPREHENSIVE SYNTHESIS WITH THESE SECTIONS:
 
 ---
 
-## ⚠️ CRITICAL POINTS & RED FLAGS (MAX 150 WORDS)
+## ⚠️ CRITICAL POINTS & RED FLAGS
 
 **Mission-critical issues:**
 
@@ -355,7 +356,7 @@ CREATE A COMPREHENSIVE SYNTHESIS WITH THESE SECTIONS:
 
 ---
 
-## 📊 EXECUTIVE SUMMARY & RECOMMENDATION (MAX 200 WORDS)
+## 📊 EXECUTIVE SUMMARY & RECOMMENDATION
 
 **CLEAR RECOMMENDATION:**
 **[GO / NO-GO / CONDITIONAL] - [One sentence explaining the decision]**
@@ -376,15 +377,15 @@ CREATE A COMPREHENSIVE SYNTHESIS WITH THESE SECTIONS:
 ---
 
 CRITICAL RULES:
-- Be intellectually honest - if experts provided fabricated data, flag it
-- Don't invent specifics not provided by experts
-- Use bullet points throughout for scannability
-- Target: 600-700 words TOTAL
-- Be decisive and specific`;
+- If user requests specific format or structure, follow it exactly
+- If user asks for scores/ratings, provide them with clear justification
+- If user asks for parameter-by-parameter analysis, address each parameter systematically
+- Cite specific evidence from provided documents
+- Be detailed and actionable`;
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 5000,
+      max_tokens: 8000,
       system: 'You are an expert at synthesizing multiple perspectives into coherent insights.',
       messages: [{ role: 'user', content: synthesisPrompt }],
     });
@@ -479,7 +480,7 @@ Generate the REVISED synthesis now:`;
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 5000,
+      max_tokens: 8000,
       system: 'You are an expert at synthesizing multiple perspectives into coherent insights.',
       messages: [{ role: 'user', content: revisionPrompt }],
     });
