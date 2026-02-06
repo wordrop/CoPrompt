@@ -243,46 +243,26 @@ const handleFileUpload = async (e) => {
     setUploadedFiles(uploadedFiles.filter((_, i) => i !== index));
   };
   const generateAIAnalysis = async () => {
-    setIsGenerating(true);
-    setError(null);
+  setIsGenerating(true);
+  setError(null);
 
-    try {
-      const prompt = `You are an expert strategic analyst. Provide a BRUTALLY CONCISE analysis.
+  try {
+    // Use the user's context as-is, without adding constraints
+    const prompt = context;
 
-CONTEXT: ${context}
-QUESTION: ${title}
+    console.log('📡 Calling backend for analysis...');
 
-STRICT LIMIT: 200 words maximum (not 201, not 250 - exactly 200 or less)
-
-Format:
-
-KEY INSIGHTS (3 bullets max)
-- [Critical finding only]
-
-EXPERT VIEWS NEEDED (3 bullets max)
-- [Specific expertise required]
-
-CRITICAL QUESTIONS (3 questions max)
-- [Must-answer questions]
-
-MAIN RISKS (2 bullets max)
-- [Highest-stakes concerns]
-
-Every word must earn its place. Cut ruthlessly. Be specific, not generic.`;
-
-      console.log('📡 Calling backend for analysis...');
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/generate-analysis`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: prompt,
-          topic: title,
-          uploadedDocuments: uploadedFiles,
-        }),
-      });
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/generate-analysis`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: prompt,
+        topic: title,
+        uploadedDocuments: uploadedFiles,
+      }),
+    });
 
       if (!response.ok) {
         throw new Error(`Backend error: ${response.status}`);
