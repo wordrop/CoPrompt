@@ -32,6 +32,7 @@ export const saveSession = (sessionData) => {
       sessionId: sessionData.sessionId,
       title: sessionData.title,
       mcName: sessionData.mcName,
+      sessionType: sessionData.sessionType || 'general',  // ADD THIS LINE
       createdAt: new Date().toISOString(),
       status: 'active',
       collaboratorCount: sessionData.selectedRoles?.length || 0

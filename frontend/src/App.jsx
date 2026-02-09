@@ -39,6 +39,7 @@ const currentPath = window.location.pathname;
 
   // Form states
   const [title, setTitle] = useState('');
+  const [sessionType, setSessionType] = useState('');
   const [context, setContext] = useState('');
   const [mcName, setMcName] = useState('');
   const [mcRole, setMcRole] = useState('Project Lead');
@@ -308,6 +309,7 @@ const handleFileUpload = async (e) => {
       
       const sessionData = {
         title,
+        sessionType: sessionType || 'general',  // ADD THIS LINE        
         context,
         aiAnalysis,
         mcName,
@@ -335,11 +337,12 @@ const handleFileUpload = async (e) => {
       setInviteLinks(links);
 // Save to localStorage for dashboard
       saveSession({
-        sessionId: newSessionId,
-        title,
-        mcName,
-        selectedRoles: [...selectedRoles, ...customRoles]
-      });
+  sessionId: newSessionId,
+  title,
+  mcName,
+  selectedRoles: [...selectedRoles, ...customRoles],
+  sessionType: sessionType || 'general'  // NEW LINE
+});
 
       // Switch to dashboard view
       setMode('mc-dashboard');
@@ -513,19 +516,36 @@ const resetAndGoHome = () => {
             </div>
           )}
 
-          {/* Session Name */}
-          <div className="mb-6">
-            <label className="block text-sm font-semibold text-slate-200 mb-2">
-              Session Name
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., Fitness App Strategy Review"
-              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            />
-          </div>
+{/* Session Name */}
+<div className="mb-6">
+  <label className="block text-sm font-semibold text-slate-200 mb-2">
+    Session Name
+  </label>
+  <input
+    type="text"
+    value={title}
+    onChange={(e) => setTitle(e.target.value)}
+    placeholder="e.g., Fitness App Strategy Review"
+    className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+  />
+</div>
+
+{/* Session Type - NEW FIELD */}
+<div className="mb-6">
+  <label className="block text-sm font-semibold text-slate-200 mb-2">
+    Session Type <span className="text-slate-400 font-normal">(Optional)</span>
+  </label>
+  <input
+    type="text"
+    value={sessionType}
+    onChange={(e) => setSessionType(e.target.value.toLowerCase().trim())}
+    placeholder="Type: hiring, performance, or risk"
+    className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+  />
+  <p className="mt-2 text-xs text-slate-400">
+    💡 Get domain-specific AI guidance for hiring decisions, performance reviews, or risk assessments
+  </p>
+</div>
 
           {/* Name and Role Row */}
           <div className="grid grid-cols-2 gap-4 mb-6">
