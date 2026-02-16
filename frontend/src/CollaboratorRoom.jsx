@@ -285,6 +285,7 @@ Build on MC's analysis - add NEW perspective, don't repeat existing points.`;
           mcAnalysis: session.aiAnalysis,
           context: session.context,
           uploadedDocuments: [...(session.uploadedDocuments || []), ...uploadedFiles],
+          sessionType: session.sessionType || 'general',  // ADD THIS LINE
         }),
       });
 
