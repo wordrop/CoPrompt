@@ -102,7 +102,51 @@ async function extractTextFromDocuments(documentUrls) {
 
   return extractedTexts.join('\n');
 }
+function getSystemPromptForAnalysis(sessionType) {
+  if (sessionType === 'hiring') {
+    return `You are a hiring advisor helping assess candidate-role fit.
 
+YOUR JOB: Provide useful perspective, not dictate the decision.
+
+Analyze the candidate profile against the role requirements. Consider:
+
+**WHAT'S WORKING:**
+- Where does experience align well with role needs?
+- What evidence suggests they can do this work?
+- What's the growth trajectory look like?
+
+**WHAT'S UNCERTAIN:**
+- What gaps exist that need interview validation?
+- What claims need evidence?
+- What risks are worth exploring?
+
+**WHAT INTERVIEWERS SHOULD PROBE:**
+- What questions would reduce uncertainty?
+- What areas need depth-testing?
+- What would you want to see examples of?
+
+---
+
+**CONTEXT MATTERS:**
+
+For JUNIOR roles: Focus on potential, learning ability, foundational skills
+For MID-LEVEL roles: Focus on execution track record, ownership, impact
+For SENIOR roles: Focus on strategic thinking, leadership, complexity navigation
+
+Adapt your analysis to the role level.
+
+---
+
+Be honest about alignment - strong, weak, or unclear. Surface what's worth digging into during interviews.`;
+  }
+  
+  // Default for non-hiring sessions
+  return 'You are an expert analyst. Follow the user\'s instructions precisely. If they ask for specific format, structure, or scores, provide exactly what they request. Be thorough and comprehensive.';
+}
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', message: 'CoPrompt API Server Running' });
+});
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'CoPrompt API Server Running' });
 });
@@ -170,13 +214,13 @@ app.post('/api/save-session', async (req, res) => {
 
 app.post('/api/generate-analysis', async (req, res) => {
   try {
-    const { prompt, topic, uploadedDocuments } = req.body;
+    const { prompt, topic, uploadedDocuments, sessionType } = req.body;
 
     if (!prompt || !topic) {
       return res.status(400).json({ error: 'Prompt and topic are required' });
     }
 
-    console.log('📊 Generating MC analysis...');
+    console.log(`📊 Generating MC analysis (type: ${sessionType || 'general'})...`);
 
     let documentContext = '';
     if (uploadedDocuments && uploadedDocuments.length > 0) {
@@ -187,19 +231,60 @@ app.post('/api/generate-analysis', async (req, res) => {
       ? `${prompt}\n\n=== UPLOADED DOCUMENTS ===\n${documentContext}\n\nPlease analyze the above context including the uploaded documents.`
       : prompt;
 
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 8000,
-      system: 'You are an expert analyst. Follow the user\'s instructions precisely. If they ask for specific format, structure, or scores, provide exactly what they request. Be thorough and comprehensive.',
-      messages: [{ role: 'user', content: fullPrompt }],
-    });
+// Get domain-specific system prompt
+    const systemPrompt = getSystemPromptForAnalysis(sessionType);
 
-    const responseText = message.content[0].text;
-    console.log(`✅ Analysis generated (${message.usage.output_tokens} tokens)`);
+const message = await anthropic.messages.create({
+  model: 'claude-sonnet-4-20250514',
+  max_tokens: 8000,
+  system: systemPrompt,
+  messages: [{ role: 'user', content: fullPrompt }],
+});
 
-    res.json({
-      success: true,
-      response: responseText,
+let responseText = message.content[0].text;
+
+
+// Append interviewer guidance boilerplate for hiring sessions
+if (sessionType === 'hiring') {
+  responseText += `
+
+---
+
+## Interviewer Guidance: Core Principles
+
+**Before evaluating candidates, watch for your own blind spots:**
+
+**Evidence over presentation** → Look for specifics: metrics, timelines, trade-offs, not polished delivery  
+**Past patterns predict future** → Progressive depth: "What did YOU decide? What was hardest? What would you change?"  
+**Raise the bar** → Not just "can they do the job" but "will they lift the team?"  
+**Structure over intuition** → Follow the framework, resist gut-feel shortcuts  
+**Watch for bias** → Halo/horn effects, "culture fit" without definition, affinity bias  
+**Create safety** → Let candidates reveal depth naturally, don't interrogate
+
+**What makes assessment GOOD:**
+- Specific examples with context
+- Owns both successes AND failures
+- Shows decision logic and trade-off thinking
+- Demonstrates learning from setbacks
+- Asks thoughtful questions back
+
+**What makes assessment BAD:**
+- Generic buzzwords without substance
+- Vague ownership ("we did X" with no personal decision authority)
+- Cannot explain mechanics when probed
+- Inconsistent narratives when challenged
+- No reflection or learning from difficulties
+
+**Remember:** This is guidance, not gospel. Different interviewers bring different strengths. The goal is to help you see what you might otherwise miss.`;
+}
+
+console.log(`✅ Analysis generated (${message.usage.output_tokens} tokens)`);
+
+console.log(`✅ Analysis generated (${message.usage.output_tokens} tokens)`);
+
+res.json({
+  success: true,
+  response: responseText,
       usage: {
         inputTokens: message.usage.input_tokens,
         outputTokens: message.usage.output_tokens,

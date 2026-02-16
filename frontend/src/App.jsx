@@ -254,16 +254,17 @@ const handleFileUpload = async (e) => {
     console.log('📡 Calling backend for analysis...');
 
     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/generate-analysis`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: prompt,
-        topic: title,
-        uploadedDocuments: uploadedFiles,
-      }),
-    });
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    prompt: prompt,
+    topic: title,
+    uploadedDocuments: uploadedFiles,
+    sessionType: sessionType || 'general',  // ADD THIS LINE
+  }),
+});
 
       if (!response.ok) {
         throw new Error(`Backend error: ${response.status}`);
