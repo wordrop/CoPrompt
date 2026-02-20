@@ -1,0 +1,183 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2639
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\fnil\fcharset0 AppleColorEmoji;\f2\fnil\fcharset0 LucidaGrande;
+}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 # CoPrompt Development Handover\
+**Date:** February 16, 2026  \
+**Session Duration:** ~4.5 hours  \
+**Status:** Complete hiring module shipped 
+\f1 \uc0\u9989 
+\f0 \
+\
+---\
+\
+## 
+\f1 \uc0\u55356 \u57263 
+\f0  TODAY'S ACCOMPLISHMENTS\
+\
+### 1. Logo Implementation\
+
+\f1 \uc0\u9989 
+\f0  Professional `[ > ]` logo replacing sparkle emoji\
+- Created CoPromptLogo.jsx component\
+- Deployed across landing and app\
+- Files: `/frontend/src/CoPromptLogo.jsx`, `Landing.jsx`, `App.jsx`\
+\
+### 2. Critical Quality Fix  \
+
+\f1 \uc0\u9989 
+\f0  Removed 200-word constraint\
+- Frontend had: "BRUTALLY CONCISE, 200 words max"\
+- Fix: `const prompt = context;` (use user's instructions as-is)\
+- Result: 3000+ word comprehensive analyses now work\
+- File: `/frontend/src/App.jsx`\
+\
+### 3. Complete Hiring Module\
+
+\f1 \uc0\u9989 
+\f0  Domain-specific prompts for MC and Collaborator\
+
+\f1 \uc0\u9989 
+\f0  Session type infrastructure (hiring/performance/risk/other)\
+
+\f1 \uc0\u9989 
+\f0  Interviewer guidance boilerplate (backend-appended)\
+\
+**Backend:**\
+- `getSystemPromptForAnalysis(sessionType)` - MC guidance\
+- `getSystemPromptForCollaborator(sessionType)` - Collaborator helper\
+- File: `/backend/server.js`\
+\
+**Frontend:**\
+- Added sessionType field to session creation\
+- Sends to backend for routing\
+- Files: `/frontend/src/App.jsx`, `CollaboratorRoom.jsx`\
+\
+**Philosophy:**\
+- Simplified collaborator (helper not auditor)\
+- No credibility gap (doesn't critique then use anyway)\
+- Quality audit saved: `/backend/server.js.backup-quality-audit-hiring`\
+\
+---\
+\
+## 
+\f1 \uc0\u55357 \u56523 
+\f0  NEXT SESSION PRIORITIES\
+\
+### HIGH: Module Selection Cards (~1 hour)\
+**Replace:** Text input "Type: hiring, performance, or risk"  \
+**With:** Visual cards:\
+```\
+\uc0\u9484 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9488  \u9484 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9488  \u9484 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9488  \u9484 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9488 \
+\uc0\u9474  
+\f1 \uc0\u55357 \u56421 
+\f0  Hiring\uc0\u9474  \u9474  
+\f1 \uc0\u55357 \u56522 
+\f0  Perf  \uc0\u9474  \u9474  
+\f1 \uc0\u9888 \u65039 
+\f0  Risk  \uc0\u9474  \u9474  
+\f1 \uc0\u55356 \u57263 
+\f0  Other \uc0\u9474 \
+\uc0\u9492 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9496  \u9492 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9496  \u9492 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9496  \u9492 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9496 \
+```\
+\
+### MEDIUM: Performance Module (~1 hour)\
+- Copy hiring pattern\
+- Update getSystemPromptForAnalysis() \
+- Update getSystemPromptForCollaborator()\
+- Test performance session\
+\
+### MEDIUM: Risk Module (~1 hour)\
+- Copy hiring pattern\
+- Same updates as performance\
+- Test risk session\
+\
+---\
+\
+## 
+\f1 \uc0\u55357 \u56613 
+\f0  CONTEXT FOR NEXT CLAUDE\
+\
+**Opening message:**\
+"I'm working on CoPrompt, an AI-powered collaborative decision-making platform launching 04/04/2026. Yesterday we completed the hiring module end-to-end (MC analysis 
+\f2 \uc0\u8594 
+\f0  collaborator input 
+\f2 \uc0\u8594 
+\f0  synthesis). Today I want to: (1) build visual module selection cards, (2) add performance module, (3) add risk module using the hiring pattern."\
+\
+**Quick Facts:**\
+- Frontend: React/Vite on Vercel (coprompt.net)\
+- Backend: Node/Express on Railway\
+- DB: Firebase Firestore\
+- AI: Claude Sonnet 4\
+- Repo: `/Users/ribbn/CoPrompt`\
+\
+**Development workflow:**\
+1. Test localhost (frontend: `npm run dev`, backend: `npm start`)\
+2. Commit to git\
+3. Auto-deploy to production\
+\
+---\
+\
+## 
+\f1 \uc0\u55357 \u56481 
+\f0  STRATEGIC INSIGHT\
+\
+**From today's discussion:**\
+> "Most teams don't have an answer problem. They have a question design problem."\
+\
+**Better positioning for CoPrompt:**\
+"Challenge your questions before optimizing your answers"\
+\
+**Use cases beyond hiring/perf/risk:**\
+- RFP analysis\
+- Product strategy\
+- Board decisions\
+- Project reviews\
+\
+**Implication:** "Other" module is fundamental, not afterthought\
+\
+---\
+\
+## 
+\f1 \uc0\u9989 
+\f0  WHAT WORKS NOW\
+\
+Complete hiring workflow:\
+1. MC creates session (type: hiring)\
+2. Uploads docs, gets domain-specific analysis\
+3. Collaborators submit feedback, get helpful articulation\
+4. Synthesis combines into decision brief\
+\
+Quality: Comprehensive, evidence-based, professional\
+\
+---\
+\
+## 
+\f1 \uc0\u55356 \u57303 \u65039 
+\f0  TECH CONTEXT\
+\
+**Key functions (in /backend/server.js):**\
+```javascript\
+function getSystemPromptForAnalysis(sessionType) \{\
+  if (sessionType === 'hiring') \{ return `...hiring prompt...`; \}\
+  // Add 'performance' and 'risk' blocks here\
+  return 'default prompt';\
+\}\
+\
+function getSystemPromptForCollaborator(sessionType) \{\
+  if (sessionType === 'hiring') \{ return `...helper prompt...`; \}\
+  // Add 'performance' and 'risk' blocks here\
+  return 'default prompt';\
+\}\
+```\
+\
+**To add new modules:** Add if blocks for 'performance' and 'risk'\
+\
+---\
+\
+**STATUS:** Ready for next session. Clear path to complete all launch modules.}

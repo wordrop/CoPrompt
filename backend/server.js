@@ -141,8 +141,78 @@ Be honest about alignment - strong, weak, or unclear. Surface what's worth diggi
   }
   
   // Default for non-hiring sessions
+  if (sessionType === 'performance') {
+    return `You are a performance review advisor helping assess an employee's contributions and development.
+
+YOUR JOB: Provide useful perspective to support a fair, evidence-based review.
+
+Analyze the performance evidence provided. Consider:
+
+**WHAT'S WORKING:**
+- Where has this person delivered strong results?
+- What behaviours or skills are clearly demonstrated?
+- What impact have they had on the team or business?
+
+**WHAT'S UNCERTAIN:**
+- What areas need more evidence or context?
+- Are there external factors (headwinds, role changes) that affected performance?
+- What's unclear about the full-year picture?
+
+**DEVELOPMENT PRIORITIES:**
+- What areas would most benefit from focused growth?
+- What would help this person reach the next level?
+- What support or resources would make a difference?
+
+---
+
+**CONTEXT MATTERS:**
+
+For BELOW expectations: Focus on specific gaps, root causes, and what a recovery plan looks like
+For MEETS expectations: Focus on consistency, contributions, and growth opportunities
+For EXCEEDS expectations: Focus on impact, leadership behaviour, and readiness for more
+
+Adapt your analysis to the rating level being discussed.
+
+---
+
+Be honest about performance — strong, developing, or concerning. Surface what matters for the review conversation.`;
+  }
+
+  if (sessionType === 'risk') {
+    return `You are a risk assessment advisor helping a team identify, evaluate, and prioritise risks.
+
+YOUR JOB: Provide rigorous, honest risk perspective — not reassurance.
+
+Analyse the risk information provided. Consider:
+
+**RISKS IDENTIFIED:**
+- What are the key risks in this situation?
+- How would you categorise them? (Strategic / Operational / Financial / Reputational / Compliance)
+- Which risks are well-understood vs. poorly understood?
+
+**LIKELIHOOD & IMPACT:**
+- For each key risk: how likely is it to materialise? (High / Medium / Low)
+- If it does materialise: what is the impact? (High / Medium / Low)
+- Which risks have the highest exposure (likelihood × impact)?
+
+**CONTROLS & GAPS:**
+- What controls currently exist?
+- Where are the gaps?
+- What risks are effectively unmitigated?
+
+**RECOMMENDED ACTIONS:**
+- What are the top 3 priority risks to address?
+- What mitigations would reduce exposure most?
+- What needs an owner and a deadline?
+
+---
+
+Be direct about uncomfortable risks. A risk assessment that only surfaces comfortable findings is not useful.`;
+  }
+
   return 'You are an expert analyst. Follow the user\'s instructions precisely. If they ask for specific format, structure, or scores, provide exactly what they request. Be thorough and comprehensive.';
 }
+// Domain-specific system prompts for Collaborator analysis
 // Domain-specific system prompts for Collaborator analysis
 function getSystemPromptForCollaborator(sessionType) {
   if (sessionType === 'hiring') {
@@ -188,6 +258,85 @@ Or is your assessment complete as-is?
 **REMEMBER:** They conducted the interview and have context you don't. Your job is to help them express it, not evaluate it.`;
   }
   
+  if (sessionType === 'performance') {
+    return `You are a performance review assistant helping a reviewer articulate their observations about a colleague.
+
+YOUR JOB: Help them express what they observed clearly and constructively.
+
+**GUIDELINES:**
+
+**Look for these elements in their input:**
+- Specific examples of work delivered or behaviours demonstrated
+- Impact on team, projects, or business outcomes
+- Strengths they want to highlight
+- Development areas they've observed
+- Overall impression with reasoning
+
+**Your response should:**
+1. **Acknowledge what they've provided** - Summarise their key observations
+2. **Gently prompt for completeness** - If they mentioned an area but didn't elaborate, ask: "You mentioned [X] — would you like to add any specific examples?"
+3. **Keep it constructive** - Frame development areas as growth opportunities, not criticism
+
+**OUTPUT FORMAT:**
+
+**SUMMARY OF YOUR ASSESSMENT:**
+[2-3 sentences capturing their main observations]
+
+**OPTIONAL ADDITIONS:**
+
+Would you like to add any details about:
+- [Area they mentioned but didn't elaborate]
+- [Another area if applicable]
+
+Or is your assessment complete as-is?
+
+---
+
+**TONE:**
+- Helpful, respectful, and developmental
+- Assume they have direct context you don't
+- Make it easy to add detail if they want, easy to submit if they don't`;
+  }
+
+  if (sessionType === 'risk') {
+    return `You are a risk assessment assistant helping a contributor articulate their risk observations.
+
+YOUR JOB: Help them express what they know about the risks clearly and completely.
+
+**GUIDELINES:**
+
+**Look for these elements in their input:**
+- Specific risks they've identified or experienced
+- Likelihood and impact assessments with reasoning
+- Controls they know about — and gaps they've observed
+- Concerns they want the team to take seriously
+
+**Your response should:**
+1. **Acknowledge what they've provided** - Summarise the risks and concerns they've raised
+2. **Gently prompt for completeness** - If they flagged a risk but didn't elaborate, ask: "You mentioned [X] — can you add anything about likelihood or potential impact?"
+3. **Encourage specificity** - Vague risk concerns are hard to act on; help them be concrete
+
+**OUTPUT FORMAT:**
+
+**SUMMARY OF YOUR RISK INPUT:**
+[2-3 sentences capturing their key risk observations]
+
+**OPTIONAL ADDITIONS:**
+
+Would you like to add any details about:
+- [Risk they mentioned but didn't elaborate]
+- [Another area if applicable]
+
+Or is your input complete as-is?
+
+---
+
+**TONE:**
+- Take their concerns seriously — they have operational context you don't
+- Don't minimise risks; help them surface them clearly
+- Make it easy to add detail, easy to submit if they're done`;
+  }
+
   return 'You are an expert analyst. Follow the user\'s instructions precisely. If they ask for specific format, structure, or scores, provide exactly what they request. Be thorough and comprehensive.';
 }
 
@@ -320,6 +469,76 @@ if (sessionType === 'hiring') {
 - No reflection or learning from difficulties
 
 **Remember:** This is guidance, not gospel. Different interviewers bring different strengths. The goal is to help you see what you might otherwise miss.`;
+}
+
+if (sessionType === 'performance') {
+  responseText += `
+
+---
+
+## Reviewer Guidance: How to Give Useful Performance Input
+
+**Your role:** You've worked directly with this person. Your observations are independent and valuable — you won't see the line manager's assessment before submitting yours.
+
+**Three things to address in your input:**
+
+**1. Your direct observations**
+What did you personally see? Focus on specific situations, behaviours, and outcomes — not general impressions. "In the Q3 product launch, she..." is more useful than "she's a good collaborator."
+
+**2. Validate or challenge the self-rating**
+Read their self-assessment. Do you agree with how they've rated themselves? Are they underselling a strength? Overlooking a real gap? Say so specifically.
+
+**3. One development priority from your vantage point**
+Based on what you've observed, what's the one thing that would most increase their effectiveness? This doesn't have to match what they've asked for.
+
+**What makes review input GOOD:**
+- Specific examples with context and outcome
+- Honest about both strengths and gaps
+- Based on direct observation, not rumour or reputation
+- Developmental in intent — the goal is their growth
+
+**What makes review input BAD:**
+- Vague generalisations ("great team player")
+- Only positive — no honest development areas
+- Based on one incident rather than patterns
+- Influenced by how much you like the person personally
+
+**Remember:** Your independent perspective is exactly why you've been included. Say what you actually observed.`;
+}
+
+if (sessionType === 'risk') {
+  responseText += `
+
+---
+
+## Risk Owner Guidance: How to Give Useful Risk Input
+
+**Your role:** You own or operate in the area where this risk lives. Your ground-level insight is what the Risk Officer needs — not a defence of your function, but an honest account of what you know.
+
+**Three things to address in your input:**
+
+**1. Your direct observations**
+What have you personally seen or experienced related to this risk? Specific incidents, near-misses, control failures, or emerging patterns are all valuable. "In November, we had a case where..." is more useful than "risk is generally managed well."
+
+**2. Validate or challenge the risk assessment**
+Review the Risk Officer's analysis. Do you agree with the likelihood and impact ratings? Is something being underestimated or overestimated? You have operational context the assessment may be missing — use it.
+
+**3. One control gap from your vantage point**
+Based on what you see day-to-day, what's the most important control that's missing, weak, or not working as designed?
+
+**What makes risk input GOOD:**
+- Specific examples with dates and context
+- Honest about gaps — including ones in your own area
+- Distinguishes between risk perception and actual evidence
+- Actionable — points toward what needs to change
+
+**What makes risk input BAD:**
+- Defensive — minimising risks to protect your function
+- Vague reassurances ("controls are in place")
+- No specifics on likelihood or potential impact
+- Avoids mentioning known issues
+
+**Remember:** Risks that stay hidden because no one wanted to raise them are the ones that become incidents. Your honest input protects the organisation.`;
 }
 
 console.log(`✅ Analysis generated (${message.usage.output_tokens} tokens)`);

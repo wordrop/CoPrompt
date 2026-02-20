@@ -39,7 +39,24 @@ const currentPath = window.location.pathname;
 
   // Form states
   const [title, setTitle] = useState('');
-  const [sessionType, setSessionType] = useState('');
+  const [sessionType, setSessionType] = useState('hiring');
+  const moduleTemplates = {
+  hiring: `Please analyse the attached candidate profile and job description.
+
+Assess: (1) Competency fit against role requirements, (2) Key strengths with evidence, (3) Gaps or risks worth probing, (4) Hiring recommendation with confidence level, (5) Suggested interview questions for remaining unknowns.`,
+
+  performance: `Please review the attached self-assessment for [Employee Name].
+
+Assess: (1) Performance against each objective — did they deliver?, (2) Validate their self-rating — is it accurate or are they over/underselling?, (3) Identify blind spots — what are they missing about themselves?, (4) Recommended overall rating with rationale, (5) Suggested development priorities for next year.`,
+
+  risk: `Please analyse the attached risk event / risk register.
+
+Assess: (1) Nature and category of the risk (Strategic / Operational / Financial / Reputational / Compliance), (2) Likelihood and impact — High / Medium / Low with rationale, (3) Existing controls and their effectiveness, (4) Top 3 priority risks ranked by exposure, (5) Recommended mitigations with suggested owners.`,
+
+  other: `Please analyse the attached materials and help us make a well-reasoned decision.
+
+Assess: (1) Frame the core decision clearly — what exactly are we deciding?, (2) Key factors and trade-offs the team needs to weigh, (3) Assumptions that need to be tested, (4) Options available with pros and cons, (5) Recommended path with rationale and open questions for the team.`
+};
   const [context, setContext] = useState('');
   const [mcName, setMcName] = useState('');
   const [mcRole, setMcRole] = useState('Project Lead');
@@ -531,21 +548,35 @@ const resetAndGoHome = () => {
   />
 </div>
 
-{/* Session Type - NEW FIELD */}
+{/* Session Type - MODULE CARDS */}
 <div className="mb-6">
-  <label className="block text-sm font-semibold text-slate-200 mb-2">
-    Session Type <span className="text-slate-400 font-normal">(Optional)</span>
+  <label className="block text-sm font-semibold text-slate-200 mb-3">
+    Decision Type
   </label>
-  <input
-    type="text"
-    value={sessionType}
-    onChange={(e) => setSessionType(e.target.value.toLowerCase().trim())}
-    placeholder="Type: hiring, performance, or risk"
-    className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-  />
-  <p className="mt-2 text-xs text-slate-400">
-    💡 Get domain-specific AI guidance for hiring decisions, performance reviews, or risk assessments
-  </p>
+  <div className="grid grid-cols-4 gap-3">
+    {[
+      { id: 'hiring',      icon: '👥', label: 'Hiring',      desc: 'Candidate evaluation' },
+      { id: 'performance', icon: '📊', label: 'Performance', desc: 'Reviews & feedback' },
+      { id: 'risk',        icon: '⚠️', label: 'Risk',        desc: 'Risk assessment' },
+      { id: 'other',       icon: '🎯', label: 'Other',       desc: 'Any team decision' },
+    ].map((m) => (
+      <div
+        key={m.id}
+        onClick={() => { setSessionType(m.id); setContext(moduleTemplates[m.id]); }}
+        className={`cursor-pointer rounded-xl border-2 p-3 text-center transition-all ${
+          sessionType === m.id
+            ? 'border-purple-500 bg-purple-500/20'
+            : 'border-slate-600 bg-slate-700 hover:border-slate-400'
+        }`}
+      >
+        <div className="text-2xl mb-1">{m.icon}</div>
+        <div className={`text-sm font-semibold ${sessionType === m.id ? 'text-purple-300' : 'text-slate-200'}`}>
+          {m.label}
+        </div>
+        <div className="text-xs text-slate-400 mt-1 leading-tight">{m.desc}</div>
+      </div>
+    ))}
+  </div>
 </div>
 
           {/* Name and Role Row */}

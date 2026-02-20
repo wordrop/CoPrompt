@@ -481,7 +481,7 @@ Build on MC's analysis - add NEW perspective, don't repeat existing points.`;
         </div>
 
         {/* Always show: MC's Analysis */}
-        {session.aiAnalysis && (
+        {session.aiAnalysis && session.sessionType !== 'performance' && (
           <div className="bg-white rounded-lg shadow-xl p-8 mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
               🎯 MC's Initial Analysis
@@ -621,14 +621,65 @@ return (
           <p className="text-gray-700 whitespace-pre-wrap">{session.context}</p>
           
           {/* MC's AI Analysis */}
-          {session.aiAnalysis && (
+          {session.aiAnalysis && session.sessionType !== 'performance' && (
             <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
               <p className="text-sm font-semibold text-blue-900 mb-2">MC's Initial AI Analysis:</p>
               <p className="text-sm text-gray-700 whitespace-pre-wrap">{session.aiAnalysis}</p>
             </div>
           )}
         </div>
+{/* Collaborator Guidance - module specific */}
+        {session.sessionType === 'performance' && (
+          <div className="bg-amber-50 rounded-lg shadow-md p-6 mb-6 border border-amber-200">
+            <h2 className="text-xl font-bold text-amber-900 mb-4">
+              📝 Reviewer Guidance
+            </h2>
+            <p className="text-sm text-amber-800 mb-4">
+              Your role: You've worked directly with this person. Your observations are independent and valuable — you won't see the line manager's assessment before submitting yours.
+            </p>
+            <p className="text-sm font-semibold text-amber-900 mb-2">Three things to address in your input:</p>
+            <div className="space-y-3 text-sm text-amber-800">
+              <div>
+                <p className="font-semibold">1. Your direct observations</p>
+                <p>What did you personally see? Focus on specific situations, behaviours, and outcomes — not general impressions. "In the Q3 project, she..." is more useful than "she's a good collaborator."</p>
+              </div>
+              <div>
+                <p className="font-semibold">2. Validate or challenge the self-rating</p>
+                <p>Read their self-assessment. Do you agree with how they've rated themselves? Are they underselling a strength? Overlooking a real gap? Say so specifically.</p>
+              </div>
+              <div>
+                <p className="font-semibold">3. One development priority from your vantage point</p>
+                <p>Based on what you've observed, what's the one thing that would most increase their effectiveness?</p>
+              </div>
+            </div>
+          </div>
+        )}
 
+        {session.sessionType === 'risk' && (
+          <div className="bg-red-50 rounded-lg shadow-md p-6 mb-6 border border-red-200">
+            <h2 className="text-xl font-bold text-red-900 mb-4">
+              ⚠️ Risk Owner Guidance
+            </h2>
+            <p className="text-sm text-red-800 mb-4">
+              Your role: You own or operate in the area where this risk lives. Your ground-level insight is what the Risk Officer needs — not a defence of your function, but an honest account of what you know.
+            </p>
+            <p className="text-sm font-semibold text-red-900 mb-2">Three things to address in your input:</p>
+            <div className="space-y-3 text-sm text-red-800">
+              <div>
+                <p className="font-semibold">1. Your direct observations</p>
+                <p>What have you personally seen or experienced related to this risk? Specific incidents, near-misses, or control failures are all valuable.</p>
+              </div>
+              <div>
+                <p className="font-semibold">2. Validate or challenge the risk assessment</p>
+                <p>Do you agree with the likelihood and impact ratings? You have operational context the assessment may be missing — use it.</p>
+              </div>
+              <div>
+                <p className="font-semibold">3. One control gap from your vantage point</p>
+                <p>What's the most important control that's missing, weak, or not working as designed?</p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* MC's Uploaded Documents */}
         {session.uploadedDocuments && session.uploadedDocuments.length > 0 && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
