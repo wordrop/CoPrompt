@@ -1,5 +1,5 @@
 // CoPrompt Backend - API Proxy Server
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -884,18 +884,10 @@ Generate the REVISED synthesis now:`;
   }
 });
 // Contact form email endpoint
-
-const transporter = nodemailer.createTransport({
-  host: 'smtpout.secureserver.net',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 app.post('/api/contact', async (req, res) => {
+  console.log('📧 Contact form received:', req.body);
   const { name, email, message } = req.body;
 
   if (!name || !email || !message) {
@@ -903,12 +895,11 @@ app.post('/api/contact', async (req, res) => {
   }
 
   try {
-    await transporter.sendMail({
-      from: `"CoPrompt Contact" <${process.env.EMAIL_USER}>`,
-      to: process.env.EMAIL_USER,
+    const result = await resend.emails.send({
+      from: 'CoPrompt Contact <hello@coprompt.net>',
+      to: 'hello@coprompt.net',
       replyTo: email,
       subject: `CoPrompt Contact: ${name}`,
-      text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
       html: `
         <h2>New Contact Form Submission</h2>
         <p><strong>Name:</strong> ${name}</p>
@@ -918,12 +909,14 @@ app.post('/api/contact', async (req, res) => {
       `,
     });
 
+    console.log('📧 Resend result:', result);
     res.json({ success: true });
   } catch (err) {
     console.error('❌ Email send error:', err);
     res.status(500).json({ success: false, error: 'Failed to send email' });
   }
 });
+
 app.listen(PORT, () => {
   console.log(`🚀 CoPrompt Backend running on http://localhost:${PORT}`);
   console.log(`📡 API endpoint: http://localhost:${PORT}/api/claude`);
