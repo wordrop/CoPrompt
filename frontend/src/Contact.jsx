@@ -48,6 +48,13 @@ const Contact = () => {
         status: 'new'
       });
 
+      // Send email via backend
+      await fetch(`${import.meta.env.VITE_API_URL}/api/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
       // Success!
       setSubmitted(true);
       setFormData({ name: '', email: '', message: '' });

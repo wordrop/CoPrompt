@@ -1,4 +1,5 @@
 // CoPrompt Backend - API Proxy Server
+import nodemailer from 'nodemailer';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -882,7 +883,47 @@ Generate the REVISED synthesis now:`;
     });
   }
 });
+// Contact form email endpoint
 
+const transporter = nodemailer.createTransport({
+  host: 'smtpout.secureserver.net',
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+app.post('/api/contact', async (req, res) => {
+  const { name, email, message } = req.body;
+
+  if (!name || !email || !message) {
+    return res.status(400).json({ success: false, error: 'Missing fields' });
+  }
+
+  try {
+    await transporter.sendMail({
+      from: `"CoPrompt Contact" <${process.env.EMAIL_USER}>`,
+      to: process.env.EMAIL_USER,
+      replyTo: email,
+      subject: `CoPrompt Contact: ${name}`,
+      text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
+      html: `
+        <h2>New Contact Form Submission</h2>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Message:</strong></p>
+        <p>${message.replace(/\n/g, '<br>')}</p>
+      `,
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Email send error:', err);
+    res.status(500).json({ success: false, error: 'Failed to send email' });
+  }
+});
 app.listen(PORT, () => {
   console.log(`🚀 CoPrompt Backend running on http://localhost:${PORT}`);
   console.log(`📡 API endpoint: http://localhost:${PORT}/api/claude`);
