@@ -49,9 +49,11 @@ Assess: (1) Competency fit against role requirements, (2) Key strengths with evi
 
 Assess: (1) Performance against each objective — did they deliver?, (2) Validate their self-rating — is it accurate or are they over/underselling?, (3) Identify blind spots — what are they missing about themselves?, (4) Recommended overall rating with rationale, (5) Suggested development priorities for next year.`,
 
-  risk: `Please analyse the attached risk event / risk register.
+risk: `Please review the attached risk event report and perform a full triage analysis.
 
-Assess: (1) Nature and category of the risk (Strategic / Operational / Financial / Reputational / Compliance), (2) Likelihood and impact — High / Medium / Low with rationale, (3) Existing controls and their effectiveness, (4) Top 3 priority risks ranked by exposure, (5) Recommended mitigations with suggested owners.`,
+Context: [Add 1-2 sentences about your organisation, risk appetite, or any specific focus area — e.g. "We are a regulated NBFC. Pay particular attention to regulatory notification obligations and vendor management controls."]
+
+Flag any gaps in the submission that risk owners will need to address before the event can be formally assessed.`,
 
   other: `Please analyse the attached materials and help us make a well-reasoned decision.
 

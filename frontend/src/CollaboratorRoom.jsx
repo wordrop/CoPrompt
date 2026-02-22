@@ -126,6 +126,79 @@ export default function CollaboratorRoom({ sessionId }) {
   // Get role from URL
   const urlParams = new URLSearchParams(window.location.search);
   const role = urlParams.get('role');
+useEffect(() => {
+    if (session && session.sessionType === 'risk' && role) {
+      const roleLower = role.toLowerCase();
+      const riskPrompts = {
+        'operations': `As the Business / Operations owner, please address:
+
+1. Root Cause: Not what happened — why did the conditions exist for it to happen? "Human error" is not a complete answer.
+2. Your role in the event: When did you first become aware? What actions did you take?
+3. Corrective Action (CAPA): What has been fixed immediately? What prevents recurrence? Who owns each action and by what date?
+4. Process reality: Describe how the process actually operates — including any workarounds or manual interventions not in the documented procedure.`,
+
+        'business': `As the Business / Operations owner, please address:
+
+1. Root Cause: Not what happened — why did the conditions exist for it to happen? "Human error" is not a complete answer.
+2. Your role in the event: When did you first become aware? What actions did you take?
+3. Corrective Action (CAPA): What has been fixed immediately? What prevents recurrence? Who owns each action and by what date?
+4. Process reality: Describe how the process actually operates — including any workarounds or manual interventions not in the documented procedure.`,
+
+        'technology': `As the Technology / Cybersecurity owner, please address:
+
+1. Change management: Was this integration reviewed by business, operations, and risk before deployment? Who approved it?
+2. Access permissions: What exact permissions were granted? Who approved the scope?
+3. Monitoring gap: Why did existing controls not detect the anomaly within the expected window?
+4. Remediation: What technical fixes have been implemented and what remains outstanding?`,
+
+        'tech': `As the Technology / Cybersecurity owner, please address:
+
+1. Change management: Was this integration reviewed by business, operations, and risk before deployment? Who approved it?
+2. Access permissions: What exact permissions were granted? Who approved the scope?
+3. Monitoring gap: Why did existing controls not detect the anomaly within the expected window?
+4. Remediation: What technical fixes have been implemented and what remains outstanding?`,
+
+        'compliance': `As the Compliance / Legal owner, please address:
+
+1. Policy assessment: Was the relevant policy adequate? If there was a gap, was it previously known or flagged?
+2. Oversight: What oversight mechanism should have identified this risk earlier? Why didn't it?
+3. Regulatory obligations: What notification requirements apply? What decisions have been made on timing?
+4. Recommended next steps from a compliance and legal perspective.`,
+
+        'legal': `As the Compliance / Legal owner, please address:
+
+1. Policy assessment: Was the relevant policy adequate? If there was a gap, was it previously known or flagged?
+2. Oversight: What oversight mechanism should have identified this risk earlier? Why didn't it?
+3. Regulatory obligations: What notification requirements apply? What decisions have been made on timing?
+4. Recommended next steps from a compliance and legal perspective.`,
+
+        'vendor': `As the Vendor Management owner, please address:
+
+1. Due diligence: What assessments were conducted before this vendor was onboarded? What did they find?
+2. Access scope: Were the data access permissions granted appropriate for the stated purpose?
+3. Ongoing monitoring: What vendor monitoring was in place after onboarding?
+4. Contract terms: What do the contract terms say about data access, security obligations, and breach notification?`,
+
+        'controls': `As the Controls / 1LOD Controls owner, please address:
+
+1. Control design: Were controls designed to detect or prevent this type of event? If yes, why did they fail?
+2. Monitoring: What monitoring activities were in place and what did they show?
+3. Shared ownership: Controls are part of the business — where did your team's oversight break down?
+4. Remediation: What control fixes are required, who owns them, and by when?`,
+
+        '1lod': `As the Controls / 1LOD Controls owner, please address:
+
+1. Control design: Were controls designed to detect or prevent this type of event? If yes, why did they fail?
+2. Monitoring: What monitoring activities were in place and what did they show?
+3. Shared ownership: Controls are part of the business — where did your team's oversight break down?
+4. Remediation: What control fixes are required, who owns them, and by when?`,
+      };
+
+      if (riskPrompts[roleLower]) {
+        setCustomPrompt(riskPrompts[roleLower]);
+      }
+    }
+  }, [session, role]);
 
  useEffect(() => {
   if (!sessionId) return;
@@ -285,7 +358,8 @@ Build on MC's analysis - add NEW perspective, don't repeat existing points.`;
           mcAnalysis: session.aiAnalysis,
           context: session.context,
           uploadedDocuments: [...(session.uploadedDocuments || []), ...uploadedFiles],
-          sessionType: session.sessionType || 'general',  // ADD THIS LINE
+          sessionType: session.sessionType || 'general',
+          collaboratorRole: role || 'general',
         }),
       });
 
