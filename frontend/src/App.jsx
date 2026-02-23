@@ -40,6 +40,8 @@ const currentPath = window.location.pathname;
   // Form states
   const [title, setTitle] = useState('');
   const [sessionType, setSessionType] = useState('hiring');
+  const [showMorePopup, setShowMorePopup] = useState(false);
+
   const moduleTemplates = {
   hiring: `Please analyse the attached candidate profile and job description.
 
@@ -57,7 +59,25 @@ Flag any gaps in the submission that risk owners will need to address before the
 
   other: `Please analyse the attached materials and help us make a well-reasoned decision.
 
-Assess: (1) Frame the core decision clearly — what exactly are we deciding?, (2) Key factors and trade-offs the team needs to weigh, (3) Assumptions that need to be tested, (4) Options available with pros and cons, (5) Recommended path with rationale and open questions for the team.`
+Assess: (1) Frame the core decision clearly — what exactly are we deciding?, (2) Key factors and trade-offs the team needs to weigh, (3) Assumptions that need to be tested, (4) Options available with pros and cons, (5) Recommended path with rationale and open questions for the team.`,
+
+  strategy: `Please review the attached materials and help us make a well-reasoned strategic decision.
+
+Context: [Add 1-2 sentences about your organisation and the specific decision — e.g. "We are a Series B SaaS company deciding whether to build a mobile app or acquire a smaller competitor."]
+
+Focus particularly on strategic fit, execution capability, and the one assumption that most needs to be tested before committing.`,
+
+  student: `Please review the team submissions attached and help us identify where we stand as a group.
+
+Assignment brief: [Paste the assignment question or brief here]
+
+Identify: (1) Where sections connect well, (2) Where there are gaps or contradictions between submissions, (3) What's missing before we can call the assignment complete, (4) What each team member needs to do before the next meeting.`,
+
+  rfp: `Please review the attached RFP document and help us make a bid / no-bid decision.
+
+Context: [Add 1-2 sentences about your company and this opportunity — e.g. "We are a mid-size systems integrator. This RFP is from a large public sector client we have not worked with before."]
+
+Focus particularly on win probability, our genuine differentiators, and the risks we would be taking on if we bid.`,
 };
   const [context, setContext] = useState('');
   const [mcName, setMcName] = useState('');
@@ -555,7 +575,7 @@ const resetAndGoHome = () => {
   <label className="block text-sm font-semibold text-slate-200 mb-3">
     Decision Type
   </label>
-  <div className="grid grid-cols-4 gap-3">
+  <div className="grid grid-cols-5 gap-3">
     {[
       { id: 'hiring',      icon: '👥', label: 'Hiring',      desc: 'Candidate evaluation' },
       { id: 'performance', icon: '📊', label: 'Performance', desc: 'Reviews & feedback' },
@@ -578,7 +598,83 @@ const resetAndGoHome = () => {
         <div className="text-xs text-slate-400 mt-1 leading-tight">{m.desc}</div>
       </div>
     ))}
+
+    {/* More Card */}
+    <div
+      onClick={() => setShowMorePopup(true)}
+      className={`cursor-pointer rounded-xl border-2 p-3 text-center transition-all ${
+        ['strategy','student','rfp'].includes(sessionType)
+          ? 'border-purple-500 bg-purple-500/20'
+          : 'border-slate-600 bg-slate-700 hover:border-slate-400'
+      }`}
+    >
+      <div className="text-2xl mb-1">＋</div>
+      <div className={`text-sm font-semibold ${['strategy','student','rfp'].includes(sessionType) ? 'text-purple-300' : 'text-slate-200'}`}>
+        More
+      </div>
+      <div className="text-xs text-slate-400 mt-1 leading-tight">
+        {['strategy','student','rfp'].includes(sessionType)
+          ? { strategy: 'Strategy', student: 'Student', rfp: 'RFP' }[sessionType] || 'Selected'
+          : 'More modules'}
+      </div>
+    </div>
   </div>
+
+  {/* More Modules Popup */}
+  {showMorePopup && (
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+      onClick={() => setShowMorePopup(false)}
+    >
+      <div
+        className="bg-white rounded-2xl p-6 w-full max-w-lg mx-4 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-5">
+          <h3 className="text-lg font-bold text-slate-900">More Decision Types</h3>
+          <button
+            onClick={() => setShowMorePopup(false)}
+            className="text-slate-400 hover:text-slate-900 text-xl font-bold"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { id: 'strategy', icon: '♟️', label: 'Strategy',  desc: 'Build/buy, new market', live: true },
+            { id: 'student',  icon: '🎓', label: 'Student',   desc: 'Group assignments', live: true },
+            { id: 'rfp',      icon: '📋', label: 'RFP',       desc: 'Bid decisions', live: true },
+            { id: 'advertising', icon: '📢', label: 'Advertising', desc: 'Coming soon', live: false },
+            { id: 'training', icon: '🏋️', label: 'Training',  desc: 'Coming soon', live: false },
+          ].map((m) => (
+            <div
+              key={m.id}
+              onClick={() => {
+                if (!m.live) return;
+                setSessionType(m.id);
+                setContext(moduleTemplates[m.id] || '');
+                setShowMorePopup(false);
+              }}
+              className={`rounded-xl border-2 p-3 text-center transition-all ${
+                m.live
+                  ? 'cursor-pointer border-slate-600 bg-slate-700 hover:border-purple-500 hover:bg-purple-500/20'
+                  : 'cursor-not-allowed border-slate-700 bg-slate-800 opacity-50'
+              }`}
+            >
+              <div className="text-2xl mb-1">{m.icon}</div>
+              <div className={`text-sm font-semibold ${m.live ? 'text-slate-200' : 'text-slate-500'}`}>
+                {m.label}
+              </div>
+              <div className="text-xs text-slate-400 mt-1 leading-tight">{m.desc}</div>
+              {!m.live && (
+                <div className="mt-1 text-xs text-amber-500 font-semibold">Soon</div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )}
 </div>
 
           {/* Name and Role Row */}
