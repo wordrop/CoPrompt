@@ -73,7 +73,12 @@ Assignment brief: [Paste the assignment question or brief here]
 
 Identify: (1) Where sections connect well, (2) Where there are gaps or contradictions between submissions, (3) What's missing before we can call the assignment complete, (4) What each team member needs to do before the next meeting.`,
 
-  rfp: `Please review the attached RFP document and help us make a bid / no-bid decision.
+project: `Please review the attached project materials and help us assess where we stand.
+
+Context: [Add 1-2 sentences about the project — e.g. "This is a 6-month digital transformation project currently in Sprint 4. We are behind on two workstreams."]
+
+Identify: (1) Overall project health — on track, at risk, or off track?, (2) Key issues and blockers across workstreams, (3) Decisions that need to be made now, (4) What's missing before the next review meeting.`,  
+rfp: `Please review the attached RFP document and help us make a bid / no-bid decision.
 
 Context: [Add 1-2 sentences about your company and this opportunity — e.g. "We are a mid-size systems integrator. This RFP is from a large public sector client we have not worked with before."]
 
@@ -580,7 +585,7 @@ const resetAndGoHome = () => {
       { id: 'hiring',      icon: '👥', label: 'Hiring',      desc: 'Candidate evaluation' },
       { id: 'performance', icon: '📊', label: 'Performance', desc: 'Reviews & feedback' },
       { id: 'risk',        icon: '⚠️', label: 'Risk',        desc: 'Risk assessment' },
-      { id: 'other',       icon: '🎯', label: 'Other',       desc: 'Any team decision' },
+      { id: 'strategy',    icon: '♟️', label: 'Strategy',    desc: 'Build/buy, new market' },
     ].map((m) => (
       <div
         key={m.id}
@@ -603,18 +608,18 @@ const resetAndGoHome = () => {
     <div
       onClick={() => setShowMorePopup(true)}
       className={`cursor-pointer rounded-xl border-2 p-3 text-center transition-all ${
-        ['strategy','student','rfp'].includes(sessionType)
+        ['project','student','rfp'].includes(sessionType)
           ? 'border-purple-500 bg-purple-500/20'
           : 'border-slate-600 bg-slate-700 hover:border-slate-400'
       }`}
     >
       <div className="text-2xl mb-1">＋</div>
-      <div className={`text-sm font-semibold ${['strategy','student','rfp'].includes(sessionType) ? 'text-purple-300' : 'text-slate-200'}`}>
+      <div className={`text-sm font-semibold ${['project','student','rfp'].includes(sessionType) ? 'text-purple-300' : 'text-slate-200'}`}>
         More
       </div>
       <div className="text-xs text-slate-400 mt-1 leading-tight">
-        {['strategy','student','rfp'].includes(sessionType)
-          ? { strategy: 'Strategy', student: 'Student', rfp: 'RFP' }[sessionType] || 'Selected'
+        {['project','student','rfp'].includes(sessionType)
+          ? { project: 'Project Manager', student: 'Student', rfp: 'RFP' }[sessionType] || 'Selected'
           : 'More modules'}
       </div>
     </div>
@@ -641,7 +646,7 @@ const resetAndGoHome = () => {
         </div>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { id: 'strategy', icon: '♟️', label: 'Strategy',  desc: 'Build/buy, new market', live: true },
+            { id: 'project', icon: '📁', label: 'Project Manager',  desc: 'Project reviews', live: true },
             { id: 'student',  icon: '🎓', label: 'Student',   desc: 'Group assignments', live: true },
             { id: 'rfp',      icon: '📋', label: 'RFP',       desc: 'Bid decisions', live: true },
             { id: 'advertising', icon: '📢', label: 'Advertising', desc: 'Coming soon', live: false },
