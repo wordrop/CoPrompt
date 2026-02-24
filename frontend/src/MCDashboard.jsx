@@ -217,7 +217,10 @@ export default function MCDashboard({ sessionId, session }) {
 
       if (data.success) {
         setSynthesis(data.response);
-        console.log('✅ Synthesis received from backend');
+        // Save synthesis to Firebase so it persists on re-entry
+        const sessionRef = doc(db, 'sessions', sessionId);
+        await updateDoc(sessionRef, { synthesis: data.response });
+        console.log('✅ Synthesis received and saved to Firebase');
       } else {
         throw new Error(data.error || 'Failed to generate synthesis');
       }
@@ -265,7 +268,10 @@ export default function MCDashboard({ sessionId, session }) {
         setSynthesis(data.response);
         setIsRevisionModalOpen(false);
         setRevisionInstructions('');
-        console.log('✅ Revised synthesis received from backend');
+        // Save revised synthesis to Firebase so it persists on re-entry
+        const sessionRef = doc(db, 'sessions', sessionId);
+        await updateDoc(sessionRef, { synthesis: data.response });
+        console.log('✅ Revised synthesis received and saved to Firebase');
       } else {
         throw new Error(data.error || 'Failed to revise synthesis');
       }
