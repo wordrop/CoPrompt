@@ -127,7 +127,7 @@ export default function CollaboratorRoom({ sessionId }) {
   const urlParams = new URLSearchParams(window.location.search);
   const role = urlParams.get('role');
 useEffect(() => {
-    if (session && session.sessionType === 'risk' && role) {
+    if (session && session.sessionType && role) {
       const roleLower = role.toLowerCase();
       const riskPrompts = {
         'operations': `As the Business / Operations owner, please address:
@@ -196,8 +196,58 @@ useEffect(() => {
 
       if (riskPrompts[roleLower]) {
         setCustomPrompt(riskPrompts[roleLower]);
+        return;
       }
     }
+
+    // Student module
+    if (session && session.sessionType === 'student') {
+      setCustomPrompt(`Please summarise your section of the group assignment:
+
+1. What have you completed so far? Paste or describe your work.
+2. What is still outstanding in your section?
+3. How does your section connect to or depend on other team members' work?
+4. What do you need from the rest of the team before you can finish?
+5. Any concerns about the overall assignment you want to flag to the project leader?`);
+      return;
+    }
+
+    // Strategy module
+    if (session && session.sessionType === 'strategy') {
+      setCustomPrompt(`Please share your perspective on this strategic decision:
+
+1. What is your overall view — are you for or against this direction, and why?
+2. What evidence or data supports your position?
+3. What's the biggest risk you see that others may be underestimating?
+4. What assumption, if wrong, would most change your recommendation?
+5. What would you need to see before fully committing to this direction?`);
+      return;
+    }
+
+    // RFP module
+    if (session && session.sessionType === 'rfp') {
+      setCustomPrompt(`Please provide your functional assessment of this RFP opportunity:
+
+1. From your area's perspective, can we genuinely deliver what this RFP requires?
+2. Where are we strong against likely competitors in your domain?
+3. What risks does your function own if we win this bid?
+4. What commitments in this RFP concern you most?
+5. Your recommendation: bid, no-bid, or bid with conditions?`);
+      return;
+    }
+
+    // Project Manager module
+    if (session && session.sessionType === 'project') {
+      setCustomPrompt(`Please provide your workstream update:
+
+1. What is your workstream and what were you expected to deliver by this review?
+2. What has been completed and what is still outstanding?
+3. What blockers or dependencies are slowing you down?
+4. What decisions do you need from the project leader or other workstreams?
+5. What's your honest assessment — on track, at risk, or off track?`);
+      return;
+    }
+
   }, [session, role]);
 
  useEffect(() => {

@@ -869,7 +869,7 @@ app.post('/api/submit-synthesis-review', async (req, res) => {
 
 app.post('/api/generate-synthesis', async (req, res) => {
   try {
-    const { analyses, topic, sessionId } = req.body;
+    const { analyses, topic, sessionId, sessionType } = req.body;
 
     if (!analyses || !Array.isArray(analyses) || analyses.length === 0) {
       return res.status(400).json({ error: 'Analyses array is required' });
@@ -878,7 +878,16 @@ app.post('/api/generate-synthesis', async (req, res) => {
     const sessionRef = doc(db, 'sessions', sessionId);
     console.log(`🔄 Generating synthesis from ${analyses.length} analyses...`);
 
-    let synthesisPrompt = `You are synthesizing expert analyses into an EXECUTIVE DECISION BRIEF.
+    const isStudent = sessionType === 'student';
+    let synthesisPrompt = isStudent
+      ? `You are synthesizing student team submissions into an ASSIGNMENT PROGRESS BRIEF for the project leader.
+
+ASSIGNMENT:
+${topic}
+
+TEAM SUBMISSIONS:
+`
+      : `You are synthesizing expert analyses into an EXECUTIVE DECISION BRIEF.
 
 STRATEGIC QUESTION:
 ${topic}
@@ -890,7 +899,52 @@ EXPERT CONTRIBUTIONS:
       synthesisPrompt += `\n[${analysis.collaboratorName}]:\n${analysis.analysis}\n`;
     });
     
-    synthesisPrompt += `
+    synthesisPrompt += isStudent
+      ? `
+
+CREATE AN ASSIGNMENT PROGRESS BRIEF WITH THESE SECTIONS:
+
+## 📚 OVERALL ASSIGNMENT STATUS
+**[ON TRACK / AT RISK / NEEDS ATTENTION]**
+[2-3 sentences: Where does the team stand overall against the submission deadline and requirements?]
+
+---
+
+## ✅ WHAT'S BEEN COMPLETED
+- **[Student Name]**: [What they have done and quality assessment]
+- **[Student Name]**: [What they have done and quality assessment]
+
+---
+
+## ⚠️ GAPS & INCOMPLETE SECTIONS
+- **[Student Name / Section]**: [What's missing and why it matters for the final submission]
+- **[Student Name / Section]**: [What's missing and why it matters for the final submission]
+
+---
+
+## 🔗 INTEGRATION ISSUES
+[Are sections connecting coherently? Where do handoffs between sections have gaps or contradictions? Remember integration is 30% of the grade.]
+
+---
+
+## 📋 ACTION ITEMS BEFORE NEXT MEETING
+1. **[Student Name]** — [Specific action] — [By when]
+2. **[Student Name]** — [Specific action] — [By when]
+3. **[Student Name]** — [Specific action] — [By when]
+
+---
+
+## 🎯 PROJECT LEADER PRIORITIES
+[2-3 sentences: What does Riya need to focus on to keep the team on track? What decisions need to be made now?]
+
+---
+
+RULES:
+- Never write assignment content for the students
+- Focus on progress, gaps, and coordination — not the quality of strategic thinking
+- Be specific about what each student needs to do next
+- Flag integration risks clearly — this is 30% of the grade`
+      : `
 
 CREATE A COMPREHENSIVE SYNTHESIS WITH THESE SECTIONS:
 

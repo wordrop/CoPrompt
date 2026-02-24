@@ -204,7 +204,8 @@ export default function MCDashboard({ sessionId, session }) {
         body: JSON.stringify({
           analyses: submissions,
           topic: session.title,
-          sessionId: sessionId
+          sessionId: sessionId,
+          sessionType: session.sessionType || 'general'
         }),
       });
 
