@@ -71,6 +71,8 @@ Focus particularly on strategic fit, execution capability, and the one assumptio
 
 Assignment brief: [Paste the assignment question or brief here]
 
+Previous session synthesis: [If this is a follow-up meeting, upload the previous synthesis as a reference document so the AI can track progress since last meeting]
+
 Identify: (1) Where sections connect well, (2) Where there are gaps or contradictions between submissions, (3) What's missing before we can call the assignment complete, (4) What each team member needs to do before the next meeting.`,
 
 project: `Please review the attached project materials and help us assess where we stand.
