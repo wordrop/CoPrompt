@@ -40,6 +40,9 @@ const Landing = ({ onStartSession }) => {
               <button onClick={() => scrollToSection('use-cases-section')} className="text-slate-600 hover:text-slate-900 font-medium transition-colors">
                 USE CASES
               </button>
+              <button onClick={() => scrollToSection('pricing-section')} className="text-slate-600 hover:text-slate-900 font-medium transition-colors">
+                PRICING
+              </button>
               <button onClick={goToDemo} className="text-slate-600 hover:text-slate-900 font-medium transition-colors">
                 TRY DEMO
               </button>
@@ -73,6 +76,9 @@ const Landing = ({ onStartSession }) => {
               </button>
               <button onClick={() => scrollToSection('use-cases-section')} className="block w-full text-left px-4 py-2 text-slate-600 hover:bg-slate-50">
                 USE CASES
+              </button>
+              <button onClick={() => scrollToSection('pricing-section')} className="block w-full text-left px-4 py-2 text-slate-600 hover:bg-slate-50">
+                PRICING
               </button>
               <button onClick={goToDemo} className="block w-full text-left px-4 py-2 text-slate-600 hover:bg-slate-50">
                 TRY DEMO
@@ -702,7 +708,155 @@ const Landing = ({ onStartSession }) => {
     </div>
   </div>
 </section>
-      {/* Demo CTA Section */}
+{/* Pricing Section */}
+      <section id="pricing-section" className="py-20 bg-white px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h3 className="text-4xl font-bold text-slate-900 mb-4">Simple, Session-Based Pricing</h3>
+            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+              Pay per session, not per seat. Your organisation buys credits — every team member can collaborate.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 items-stretch">
+
+            {/* Starter */}
+            <div className="border-2 border-slate-200 rounded-2xl p-8 flex flex-col">
+              <div className="mb-6">
+                <h4 className="text-xl font-bold text-slate-900 mb-1">Starter</h4>
+                <p className="text-slate-500 text-sm">For small teams getting started</p>
+              </div>
+              <div className="mb-6">
+                <span className="text-5xl font-bold text-slate-900">$200</span>
+                <span className="text-slate-500 ml-2">/ pack</span>
+              </div>
+              <ul className="space-y-3 mb-8 flex-1">
+                <li className="flex items-center gap-3 text-slate-600">
+                  <span className="text-green-500 font-bold">✓</span>
+                  20 sessions
+                </li>
+                
+                <li className="flex items-center gap-3 text-slate-600">
+                  <span className="text-green-500 font-bold">✓</span>
+                  All modules included
+                </li>
+                <li className="flex items-center gap-3 text-slate-600">
+                  <span className="text-green-500 font-bold">✓</span>
+                  Unlimited collaborators per session
+                </li>
+                <li className="flex items-center gap-3 text-slate-600">
+                  <span className="text-green-500 font-bold">✓</span>
+                  Full synthesis & export
+                </li>
+              </ul>
+              
+                <a href="mailto:hello@coprompt.net?subject=Starter Plan Enquiry"
+                className="block text-center py-3 px-6 border-2 border-blue-600 text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
+              >
+               Get Started
+              </a>
+            </div>
+
+            {/* Growth - Highlighted */}
+            <div className="border-2 border-blue-600 rounded-2xl p-8 flex flex-col relative shadow-xl">
+              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                <span className="bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-semibold">
+                  MOST POPULAR
+                </span>
+              </div>
+              <div className="mb-6">
+                <h4 className="text-xl font-bold text-slate-900 mb-1">Growth</h4>
+                <p className="text-slate-500 text-sm">For teams running regular decision cycles</p>
+              </div>
+              <div className="mb-6">
+                <span className="text-5xl font-bold text-blue-600">$500</span>
+                <span className="text-slate-500 ml-2">/ pack</span>
+              </div>
+              <ul className="space-y-3 mb-8 flex-1">
+                <li className="flex items-center gap-3 text-slate-600">
+                  <span className="text-green-500 font-bold">✓</span>
+                  60 sessions
+                </li>
+                
+                <li className="flex items-center gap-3 text-slate-600">
+                  <span className="text-green-500 font-bold">✓</span>
+                  All modules included
+                </li>
+                <li className="flex items-center gap-3 text-slate-600">
+                  <span className="text-green-500 font-bold">✓</span>
+                  Unlimited collaborators per session
+                </li>
+                <li className="flex items-center gap-3 text-slate-600">
+                  <span className="text-green-500 font-bold">✓</span>
+                  Full synthesis & export
+                </li>
+                <li className="flex items-center gap-3 text-slate-600">
+                  <span className="text-green-500 font-bold">✓</span>
+                  Priority support
+                </li>
+              </ul>
+              
+                <a href="mailto:hello@coprompt.net?subject=Growth Plan Enquiry"
+                className="block text-center py-3 px-6 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              >
+                Get Started
+              </a>
+            </div>
+
+            {/* Enterprise */}
+            <div className="border-2 border-slate-200 rounded-2xl p-8 flex flex-col bg-slate-900">
+              <div className="mb-6">
+                <h4 className="text-xl font-bold text-white mb-1">Enterprise</h4>
+                <p className="text-slate-400 text-sm">For organisations running at scale</p>
+              </div>
+              <div className="mb-6">
+                <span className="text-5xl font-bold text-white">Custom</span>
+              </div>
+              <ul className="space-y-3 mb-8 flex-1">
+                <li className="flex items-center gap-3 text-slate-300">
+                  <span className="text-green-400 font-bold">✓</span>
+                  Pooled credits across teams
+                </li>
+                <li className="flex items-center gap-3 text-slate-300">
+                  <span className="text-green-400 font-bold">✓</span>
+                  Admin dashboard
+                </li>
+                <li className="flex items-center gap-3 text-slate-300">
+                  <span className="text-green-400 font-bold">✓</span>
+                  SSO / identity management
+                </li>
+                <li className="flex items-center gap-3 text-slate-300">
+                  <span className="text-green-400 font-bold">✓</span>
+                  Volume pricing
+                </li>
+                <li className="flex items-center gap-3 text-slate-300">
+                  <span className="text-green-400 font-bold">✓</span>
+                  Dedicated onboarding
+                </li>
+                <li className="flex items-center gap-3 text-slate-300">
+                  <span className="text-green-400 font-bold">✓</span>
+                  SLA & compliance support
+                </li>
+              </ul>
+              
+               <a href="mailto:hello@coprompt.net?subject=Enterprise Plan Enquiry"
+                className="block text-center py-3 px-6 border-2 border-slate-500 text-white rounded-lg font-semibold hover:border-slate-300 transition-colors"
+              >
+                Contact Us
+              </a>
+            </div>
+
+          </div>
+
+          {/* Free tier note */}
+          <div className="mt-12 text-center p-6 bg-blue-50 rounded-xl border border-blue-100">
+            <p className="text-blue-900 font-semibold text-lg mb-1">🎁 First 10 sessions are free</p>
+            <p className="text-blue-700 text-sm">No credit card required. Experience CoPrompt with your team before committing.</p>
+          </div>
+
+        </div>
+      </section>      
+{/* Demo CTA Section */}
       <section id="demo-section" className="py-20 bg-gradient-to-br from-blue-600 to-blue-700 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
           <div className="text-6xl mb-6">🎯</div>
@@ -756,7 +910,7 @@ const Landing = ({ onStartSession }) => {
           </div>
 
           <p className="text-blue-100 text-sm">
-            No signup required • First 3 sessions free
+            No signup required • First 10 sessions free
           </p>
         </div>
       </section>
