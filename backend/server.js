@@ -93,7 +93,12 @@ async function extractTextFromDocuments(documentUrls) {
       }
 
       if (text.trim()) {
-        extractedTexts.push(`\n--- DOCUMENT: ${docData.name} ---\n${text}\n--- END DOCUMENT ---\n`);
+        // Cap each document at 15,000 characters to stay within token limits
+        const MAX_CHARS = 15000;
+        const truncated = text.length > MAX_CHARS 
+          ? text.substring(0, MAX_CHARS) + `\n\n[Document truncated: ${Math.round(text.length/1000)}k characters extracted, showing first 15k for analysis]`
+          : text;
+        extractedTexts.push(`\n--- DOCUMENT: ${docData.name} ---\n${truncated}\n--- END DOCUMENT ---\n`);
       }
     } catch (error) {
       console.error(`❌ Error extracting ${docData.name}:`, error.message);
@@ -941,9 +946,12 @@ const message = await anthropic.messages.create({
     });
   } catch (error) {
     console.error('❌ Collaborator Analysis Error:', error);
+    const isTokenError = error.status === 429 || (error.message && error.message.includes('rate_limit'));
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to generate collaborator analysis',
+      error: isTokenError 
+        ? 'Your uploaded documents are too large to process in one go. Please try uploading one document at a time, or use a shorter document.'
+        : error.message || 'Failed to generate collaborator analysis',
     });
   }
 });
