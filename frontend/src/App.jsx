@@ -10,7 +10,7 @@ import RestaurantPlanner from './RestaurantPlanner';
 import Contact from './Contact';
 import Privacy from './Privacy';
 import SessionDashboard from './SessionDashboard';
-import { saveSession, checkRateLimit, trackEvent, getAllSessions } from './sessionStorage';
+import { saveSession, checkRateLimit, trackEvent, getAllSessions, checkSessionGate, saveSignupData, getSignupData } from './sessionStorage';
 
 function App() {
 const currentPath = window.location.pathname;
@@ -99,6 +99,11 @@ Focus particularly on win probability, our genuine differentiators, and the risk
   const [error, setError] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+  const [showSignupModal, setShowSignupModal] = useState(false);
+  const [signupName, setSignupName] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupError, setSignupError] = useState('');
+  const [pendingCreate, setPendingCreate] = useState(false);
 
   const roleOptions = [
     'Project Lead',
@@ -333,7 +338,19 @@ const handleFileUpload = async (e) => {
   };
 
   const createSession = async () => {
-// Check rate limit
+    // Check session gate
+    const gate = checkSessionGate();
+    if (gate.action === 'signup') {
+      setShowSignupModal(true);
+      setPendingCreate(true);
+      return;
+    }
+    if (gate.action === 'upgrade') {
+      alert('You have used all 10 free sessions. Please upgrade to continue.');
+      window.location.href = '/#pricing-section';
+      return;
+    }
+    // Check rate limit
     const rateLimit = checkRateLimit();
     if (!rateLimit.allowed) {
       const resetDate = new Date(rateLimit.resetTime);
@@ -400,7 +417,35 @@ const handleFileUpload = async (e) => {
       alert('Failed to create session');
     }
   };
-
+const handleSignupSubmit = async () => {
+    if (!signupName.trim()) {
+      setSignupError('Please enter your name');
+      return;
+    }
+    if (!signupEmail.trim() || !signupEmail.includes('@')) {
+      setSignupError('Please enter a valid email address');
+      return;
+    }
+    // Save signup locally
+    saveSignupData(signupName.trim(), signupEmail.trim());
+    // Save to Firebase
+    try {
+      await addDoc(collection(db, 'signups'), {
+        name: signupName.trim(),
+        email: signupEmail.trim(),
+        signedUpAt: new Date().toISOString(),
+        browserId: localStorage.getItem('coprompt_browser_id') || 'unknown'
+      });
+    } catch (e) {
+      console.error('Signup save error:', e);
+    }
+    setShowSignupModal(false);
+    setSignupError('');
+    if (pendingCreate) {
+      setPendingCreate(false);
+      createSession();
+    }
+  };
   const copyInviteLink = (role) => {
     navigator.clipboard.writeText(inviteLinks[role]);
     alert(`Copied invite link for ${role}!`);
@@ -421,6 +466,7 @@ const resetAndGoHome = () => {
       />
     );
   }
+  
   // Collaborator view
   if (mode === 'collaborator') {
     return <CollaboratorRoom sessionId={sessionId} />;
@@ -494,6 +540,7 @@ const resetAndGoHome = () => {
 
   // MC Create Session view (DEFAULT)
   return (
+    <>
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8">
       <div className="max-w-4xl mx-auto">
         {/* Header Section */}
@@ -964,9 +1011,61 @@ const resetAndGoHome = () => {
           <p className="text-center text-slate-400 text-sm mt-6 italic">
             Where collaboration meets AI
           </p>
-        </div>
+       </div>
       </div>
     </div>
+
+      {/* Signup Modal */}
+      {showSignupModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+            <div className="text-center mb-6">
+              <div className="text-5xl mb-3">🎁</div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                Unlock 7 More Free Sessions
+              </h2>
+              <p className="text-slate-600">
+                You've used your 3 free sessions. Sign up to unlock 7 more — completely free, no credit card needed.
+              </p>
+            </div>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Your Name</label>
+                <input
+                  type="text"
+                  value={signupName}
+                  onChange={(e) => setSignupName(e.target.value)}
+                  placeholder="e.g. Venky Krishnan"
+                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Work Email</label>
+                <input
+                  type="email"
+                  value={signupEmail}
+                  onChange={(e) => setSignupEmail(e.target.value)}
+                  placeholder="e.g. venky@company.com"
+                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              {signupError && (
+                <p className="text-red-600 text-sm">{signupError}</p>
+              )}
+            </div>
+            <button
+              onClick={handleSignupSubmit}
+              className="w-full py-4 bg-blue-600 text-white rounded-lg font-bold text-lg hover:bg-blue-700 transition-colors mb-3"
+            >
+              Unlock My Free Sessions →
+            </button>
+            <p className="text-xs text-slate-400 text-center">
+              No spam. We'll only contact you about CoPrompt updates.
+            </p>
+          </div>
+        </div>
+      )}
+     </>
   );
 }
 

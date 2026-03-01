@@ -2,6 +2,9 @@
 
 const STORAGE_KEY = 'coprompt_sessions';
 const ANALYTICS_KEY = 'coprompt_analytics';
+const SIGNUP_KEY = 'coprompt_signup';
+const FREE_SESSIONS = 3;
+const FREE_AFTER_SIGNUP = 10;
 
 // Get browser fingerprint (simple, privacy-friendly)
 const getBrowserId = () => {
@@ -82,6 +85,46 @@ export const checkRateLimit = () => {
     limit: 10,
     resetTime: new Date(recentSessions[0]?.createdAt).getTime() + (24 * 60 * 60 * 1000)
   };
+};
+
+// Get signup data
+export const getSignupData = () => {
+  try {
+    const data = localStorage.getItem(SIGNUP_KEY);
+    return data ? JSON.parse(data) : null;
+  } catch (error) {
+    return null;
+  }
+};
+
+// Save signup data
+export const saveSignupData = (name, email) => {
+  try {
+    const data = { name, email, signedUpAt: new Date().toISOString() };
+    localStorage.setItem(SIGNUP_KEY, JSON.stringify(data));
+    return data;
+  } catch (error) {
+    console.error('Error saving signup:', error);
+    return null;
+  }
+};
+
+// Check session gate — returns what action to take
+export const checkSessionGate = () => {
+  const sessions = getAllSessions();
+  const count = sessions.length;
+  const signup = getSignupData();
+
+  if (count < FREE_SESSIONS) {
+    return { action: 'allow' };
+  }
+  if (count >= FREE_SESSIONS && !signup) {
+    return { action: 'signup', sessionsUsed: count };
+  }
+  if (count >= FREE_AFTER_SIGNUP) {
+    return { action: 'upgrade', sessionsUsed: count };
+  }
+  return { action: 'allow' };
 };
 
 // Analytics tracking
