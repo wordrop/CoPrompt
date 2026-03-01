@@ -603,6 +603,9 @@ const resetAndGoHome = () => {
           {m.label}
         </div>
         <div className="text-xs text-slate-400 mt-1 leading-tight">{m.desc}</div>
+        {sessionType === m.id && (
+          <div className="text-green-400 text-xs font-bold mt-1">✓ Selected</div>
+        )}
       </div>
     ))}
 
@@ -626,7 +629,18 @@ const resetAndGoHome = () => {
       </div>
     </div>
   </div>
+{/* Selection confirmation */}
+  {sessionType && (
+    <div className="mt-3 px-4 py-2 bg-purple-500/20 border border-purple-500/40 rounded-lg">
+      <p className="text-sm text-purple-300 font-semibold">
+        ✓ Selected: <span className="text-white capitalize">
+          {{ hiring: 'Hiring', performance: 'Performance Review', risk: 'Risk Assessment', strategy: 'Strategy', project: 'Project Manager', student: 'Student', rfp: 'RFP' }[sessionType] || sessionType}
+        </span> — your context prompt has been pre-filled below, edit as needed
+      </p>
+    </div>
+  )}
 
+  {/* More Modules Popup */}
   {/* More Modules Popup */}
   {showMorePopup && (
     <div
