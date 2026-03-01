@@ -346,7 +346,6 @@ const handleFileUpload = async (e) => {
       return;
     }
     if (gate.action === 'upgrade') {
-      alert('You have used all 10 free sessions. Please upgrade to continue.');
       window.location.href = '/#pricing-section';
       return;
     }

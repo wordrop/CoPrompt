@@ -1,5 +1,5 @@
 import CoPromptLogo from './CoPromptLogo';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const Landing = ({ onStartSession }) => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -8,6 +8,15 @@ const Landing = ({ onStartSession }) => {
     document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
     setShowMobileMenu(false);
   };
+
+useEffect(() => {
+    const hash = window.location.hash.replace('#', '');
+    if (hash) {
+      setTimeout(() => {
+        document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, []);
 
   const goToApp = () => {
     window.open('/?create=true', '_blank');
