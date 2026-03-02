@@ -44,6 +44,51 @@ const anthropic = new Anthropic({
 app.use(cors());
 app.use(express.json());
 
+// IP-based rate limiting — bot protection
+const ipRequestCounts = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 10; // max 10 AI calls per minute per IP
+
+const rateLimitMiddleware = (req, res, next) => {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+
+  if (!ipRequestCounts.has(ip)) {
+    ipRequestCounts.set(ip, { count: 1, windowStart: now });
+    return next();
+  }
+
+  const record = ipRequestCounts.get(ip);
+
+  // Reset window if expired
+  if (now - record.windowStart > RATE_LIMIT_WINDOW_MS) {
+    ipRequestCounts.set(ip, { count: 1, windowStart: now });
+    return next();
+  }
+
+  // Within window — check count
+  if (record.count >= RATE_LIMIT_MAX_REQUESTS) {
+    console.warn(`🚫 Rate limit hit for IP: ${ip} (${record.count} requests in 1 min)`);
+    return res.status(429).json({
+      success: false,
+      error: 'Too many requests. Please wait a moment before trying again.'
+    });
+  }
+
+  record.count++;
+  return next();
+};
+
+// Clean up old entries every 5 minutes to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, record] of ipRequestCounts.entries()) {
+    if (now - record.windowStart > RATE_LIMIT_WINDOW_MS * 2) {
+      ipRequestCounts.delete(ip);
+    }
+  }
+}, 5 * 60 * 1000);
+
 // Helper function to extract text from documents
 async function extractTextFromDocuments(documentUrls) {
   if (!documentUrls || documentUrls.length === 0) {
@@ -778,7 +823,7 @@ app.post('/api/save-session', async (req, res) => {
   }
 });
 
-app.post('/api/generate-analysis', async (req, res) => {
+app.post('/api/generate-analysis', rateLimitMiddleware, async (req, res) => {
   try {
     const { prompt, topic, uploadedDocuments, sessionType } = req.body;
 
@@ -935,7 +980,7 @@ res.json({
   }
 });
 
-app.post('/api/generate-collaborator-analysis', async (req, res) => {
+app.post('/api/generate-collaborator-analysis', rateLimitMiddleware, async (req, res) => {
   try {
     const { prompt, customPrompt, topic, mcAnalysis, context, uploadedDocuments, sessionType, collaboratorRole } = req.body;
 
@@ -1018,7 +1063,7 @@ app.post('/api/submit-synthesis-review', async (req, res) => {
   }
 });
 
-app.post('/api/generate-synthesis', async (req, res) => {
+app.post('/api/generate-synthesis', rateLimitMiddleware, async (req, res) => {
   try {
     const { analyses, topic, sessionId, sessionType } = req.body;
 
