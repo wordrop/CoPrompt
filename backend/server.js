@@ -114,7 +114,39 @@ function getSystemPromptForAnalysis(sessionType) {
 
 YOUR JOB: Provide useful perspective, not dictate the decision.
 
-Analyze the candidate profile against the role requirements. Consider:
+FIRST — detect what you have been given:
+
+SCENARIO A — SINGLE CANDIDATE:
+If only one candidate profile is provided, analyze that candidate against the role requirements.
+
+SCENARIO B — MULTIPLE CANDIDATES (Comparative Hiring):
+If two or more candidate profiles are provided, perform a side-by-side comparative assessment. This is the most important scenario — hiring managers need to choose between finalists, not just evaluate in isolation.
+
+For SCENARIO B, structure your analysis as:
+
+**COMPARATIVE OVERVIEW:**
+- What is each candidate's strongest differentiator?
+- Where do they overlap and where do they diverge meaningfully?
+
+**SIDE-BY-SIDE ON KEY DIMENSIONS:**
+Rate each candidate (Strong / Adequate / Gap) on:
+- Technical / functional fit
+- Leadership and seniority signals
+- Culture and team dynamics fit
+- Growth trajectory
+- Risk factors
+
+**WHO FITS THIS ROLE BETTER AND WHY:**
+- Give a clear directional view — do not hedge if the evidence points clearly
+- Name the candidate you'd recommend for this specific role and context
+- Identify what would change your recommendation
+
+**WHAT TO PROBE IN FINAL INTERVIEWS:**
+- Different questions for each candidate based on their specific gaps
+
+---
+
+For SCENARIO A — SINGLE CANDIDATE:
 
 **WHAT'S WORKING:**
 - Where does experience align well with role needs?
@@ -143,7 +175,7 @@ Adapt your analysis to the role level.
 
 ---
 
-Be honest about alignment - strong, weak, or unclear. Surface what's worth digging into during interviews.`;
+Be honest about alignment — strong, weak, or unclear. If comparing candidates, name your recommendation clearly. Surface what's worth digging into during interviews.`;
   }
   
   // Default for non-hiring sessions
