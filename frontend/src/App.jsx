@@ -10,7 +10,7 @@ import RestaurantPlanner from './RestaurantPlanner';
 import Contact from './Contact';
 import Privacy from './Privacy';
 import SessionDashboard from './SessionDashboard';
-import { saveSession, checkRateLimit, trackEvent, getAllSessions, checkSessionGate, saveSignupData, getSignupData } from './sessionStorage';
+import { saveSession, checkRateLimit, trackEvent, getAllSessions, checkSessionGate, saveSignupData, getSignupData, saveDraft, getDraft, clearDraft } from './sessionStorage';
 
 function App() {
 const currentPath = window.location.pathname;
@@ -20,8 +20,17 @@ const currentPath = window.location.pathname;
   if (window.location.pathname === '/restaurant') {
     return <RestaurantPlanner />;
   }
+const params = new URLSearchParams(window.location.search);
+// Secret reset handler
+  const resetCode = params.get('reset');
+  if (resetCode === 'COPROMPT2026') {
+    localStorage.removeItem('coprompt_sessions');
+    localStorage.removeItem('coprompt_signup');
+    window.location.href = '/?create=true';
+    return null;
+  }
 /// Check if this is landing page (no URL params and no create mode)
-  const params = new URLSearchParams(window.location.search);
+
   const showLanding = !params.has('session') && !params.has('create') && window.location.pathname === '/';
   
   if (showLanding) {
@@ -139,6 +148,19 @@ Focus particularly on win probability, our genuine differentiators, and the risk
     const sessions = getAllSessions();
     setSessionCount(sessions.length);
   }, [mode]);
+// Restore draft if one exists
+  useEffect(() => {
+    const draft = getDraft();
+    if (draft) {
+      if (draft.title) setTitle(draft.title);
+      if (draft.sessionType) setSessionType(draft.sessionType);
+      if (draft.context) setContext(draft.context);
+      if (draft.mcName) setMcName(draft.mcName);
+      if (draft.mcRole) setMcRole(draft.mcRole);
+      if (draft.aiAnalysis) setAiAnalysis(draft.aiAnalysis);
+      clearDraft();
+    }
+  }, []);
 
   const toggleRole = (role) => {
     setSelectedRoles(prev => 
@@ -341,12 +363,17 @@ const handleFileUpload = async (e) => {
     // Check session gate
     const gate = checkSessionGate();
     if (gate.action === 'signup') {
+      saveDraft({ title, sessionType, context, mcName, mcRole, aiAnalysis });
       setShowSignupModal(true);
       setPendingCreate(true);
       return;
     }
     if (gate.action === 'upgrade') {
+      saveDraft({ title, sessionType, context, mcName, mcRole, aiAnalysis });
       window.location.href = '/#pricing-section';
+      setTimeout(() => {
+        alert('You have used all 10 free sessions.\n\nTo continue, choose a plan below or email hello@coprompt.net — we\'ll get you set up within 24 hours.');
+      }, 800);
       return;
     }
     // Check rate limit

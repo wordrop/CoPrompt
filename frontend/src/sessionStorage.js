@@ -87,6 +87,29 @@ export const checkRateLimit = () => {
   };
 };
 
+// Save in-progress session draft
+export const saveDraft = (draftData) => {
+  try {
+    localStorage.setItem('coprompt_draft', JSON.stringify(draftData));
+  } catch (error) {
+    console.error('Error saving draft:', error);
+  }
+};
+
+// Get saved draft
+export const getDraft = () => {
+  try {
+    const data = localStorage.getItem('coprompt_draft');
+    return data ? JSON.parse(data) : null;
+  } catch (error) {
+    return null;
+  }
+};
+
+// Clear draft after restore
+export const clearDraft = () => {
+  localStorage.removeItem('coprompt_draft');
+};
 // Get signup data
 export const getSignupData = () => {
   try {
