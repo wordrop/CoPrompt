@@ -307,7 +307,11 @@ const handleFileUpload = async (e) => {
       alert(`Successfully uploaded ${files.length} file(s)!`);
     } catch (error) {
       console.error('Upload error:', error);
-      alert('Failed to upload files. Please try again.');
+      if (error.message && error.message.includes('DOC_FORMAT')) {
+        alert('⚠️ Legacy .doc file detected.\n\nPlease resave as .docx (File → Save As → Word Document .docx) and re-upload.');
+      } else {
+        alert('Failed to upload files. Please try again.');
+      }
     } finally {
       setIsUploadingFiles(false);
     }
@@ -353,7 +357,12 @@ const handleFileUpload = async (e) => {
       }
     } catch (err) {
       console.error('❌ Error generating analysis:', err);
-      setError(err.message || 'Failed to generate AI analysis. Please try again.');
+      if (err.message && err.message.includes('DOC_FORMAT')) {
+        setError('Legacy .doc file detected. Please resave as .docx and re-upload.');
+      } else {
+        setError(err.message || 'Failed to generate AI analysis. Please try again.');
+      }
+
     } finally {
       setIsGenerating(false);
     }
@@ -831,7 +840,7 @@ const resetAndGoHome = () => {
             <p className="text-xs text-slate-400 mb-3 italic">
               Add PDFs or DOCX files (resumes, job descriptions, RFPs, etc.). Max 10MB per file.
               <br/>
-              <span className="text-yellow-400">💡 Tip: DOCX and XLSX files work best. Scanned/image PDFs may not extract properly.</span>
+              <span className="text-yellow-400">💡 Tip: DOCX and XLSX files work best. Legacy .doc files are not supported — please save as .docx first. Scanned/image PDFs may not extract properly.</span>
             </p>
             
             <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 bg-slate-700/30 hover:border-purple-500 transition-colors">

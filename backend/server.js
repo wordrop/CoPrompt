@@ -113,11 +113,12 @@ async function extractTextFromDocuments(documentUrls) {
         const pdfData = await pdfParse(nodeBuffer);
         text = pdfData.text;
         console.log(`✅ PDF extracted: ${text.length} characters`);
-      } else if (docData.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
-                 docData.type === 'application/msword') {
-        const result = await mammoth.extractRawText({ buffer: nodeBuffer });
-        text = result.value;
-        console.log(`✅ DOCX extracted: ${text.length} characters`);
+      } else if (docData.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+  const result = await mammoth.extractRawText({ buffer: nodeBuffer });
+  text = result.value;
+  console.log(`✅ DOCX extracted: ${text.length} characters`);
+} else if (docData.type === 'application/msword') {
+  throw new Error('DOC_FORMAT: Please save your document as .docx (Word 2007 or later) and re-upload. Legacy .doc format is not supported.');
       } else if (docData.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
                  docData.type === 'application/vnd.ms-excel') {
         const workbook = XLSX.read(nodeBuffer, { type: 'buffer' });

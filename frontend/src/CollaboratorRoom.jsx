@@ -435,9 +435,14 @@ Build on MC's analysis - add NEW perspective, don't repeat existing points.`;
         throw new Error(data.error || 'Failed to generate analysis');
       }
     } catch (err) {
-      console.error('❌ Error generating analysis:', err);
-      setError(err.message || 'Failed to generate analysis. Please try again.');
-      alert('Failed to generate analysis: ' + err.message);
+  console.error('❌ Error generating analysis:', err);
+  if (err.message && err.message.includes('DOC_FORMAT')) {
+  setError('Legacy .doc file detected. Please resave as .docx and re-upload.');
+  alert('⚠️ Legacy .doc file detected.\n\nPlease resave your document as .docx (File → Save As → Word Document .docx) and re-upload.');
+} else {
+  setError(err.message || 'Failed to generate analysis. Please try again.');
+  alert('Failed to generate analysis: ' + err.message);
+}
     } finally {
       setIsGenerating(false);
     }
