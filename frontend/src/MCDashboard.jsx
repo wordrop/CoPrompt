@@ -115,6 +115,10 @@ export default function MCDashboard({ sessionId, session }) {
   const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
   const [revisionInstructions, setRevisionInstructions] = useState('');
   const [isRevising, setIsRevising] = useState(false);
+  const [isEditingContext, setIsEditingContext] = useState(false);
+  const [editedContext, setEditedContext] = useState('');
+  const [isSavingContext, setIsSavingContext] = useState(false);
+  const [savedContext, setSavedContext] = useState('');
   // NEW: Sync session status when prop changes
   useEffect(() => {
     if (session?.status) {
@@ -389,8 +393,56 @@ export default function MCDashboard({ sessionId, session }) {
         )}
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-3">Original Context</h2>
-          <p className="text-gray-700 whitespace-pre-wrap">{session.context}</p>
+  <div className="flex justify-between items-center mb-3">
+    <h2 className="text-xl font-bold text-gray-900">Original Context</h2>
+    {!isEditingContext && sessionStatus !== 'finalized' && (
+      <button
+        onClick={() => { setEditedContext(session.context); setIsEditingContext(true); }}
+        className="text-sm text-purple-600 hover:text-purple-800 font-medium"
+      >
+        ✏️ Edit Context
+      </button>
+    )}
+  </div>
+  {isEditingContext ? (
+    <div>
+      <textarea
+        value={editedContext}
+        onChange={(e) => setEditedContext(e.target.value)}
+        className="w-full p-3 border border-purple-300 rounded-lg text-gray-700 text-sm"
+        rows={6}
+      />
+      <div className="flex gap-3 mt-3">
+        <button
+          onClick={async () => {
+            setIsSavingContext(true);
+            try {
+              const sessionRef = doc(db, 'sessions', sessionId);
+              await updateDoc(sessionRef, { context: editedContext });
+              setSavedContext(editedContext);
+              setIsEditingContext(false);
+            } catch (err) {
+              alert('Failed to save context: ' + err.message);
+            } finally {
+              setIsSavingContext(false);
+            }
+          }}
+          disabled={isSavingContext}
+          className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 disabled:opacity-50"
+        >
+          {isSavingContext ? 'Saving...' : '✅ Save Context'}
+        </button>
+        <button
+          onClick={() => setIsEditingContext(false)}
+          className="px-4 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  ) : (
+    <p className="text-gray-700 whitespace-pre-wrap">{savedContext || session.context}</p>
+  )}
           
           {session.aiAnalysis && (
             <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
