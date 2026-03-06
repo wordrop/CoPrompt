@@ -23,7 +23,7 @@ const currentPath = window.location.pathname;
 const params = new URLSearchParams(window.location.search);
 // Secret reset handler
   const resetCode = params.get('reset');
-  if (resetCode === 'COPROMPT2026') {
+  if (resetCode === 'DIJJER2026') {
     localStorage.removeItem('coprompt_sessions');
     localStorage.removeItem('coprompt_signup');
     window.location.href = '/?create=true';

@@ -1,0 +1,13 @@
+<svg width="400" height="400" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Left Bracket - 2% shorter -->
+  <path d="M 24 18.64 L 24 18.64 Q 16 18.64 16 26.64 L 16 75.36 Q 16 83.36 24 83.36"
+    stroke="#2563eb" stroke-width="8" stroke-linecap="square" fill="none"/>
+  <!-- Right Bracket - baseline -->
+  <path d="M 76 18 L 76 18 Q 84 18 84 26 L 84 76 Q 84 84 76 84"
+    stroke="#2563eb" stroke-width="8" stroke-linecap="square" fill="none"/>
+  <!-- Arrow > -->
+  <g transform="translate(48, 52)">
+    <line x1="-14" y1="-13" x2="14" y2="0" stroke="#2563eb" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="-14" y1="13" x2="14" y2="0" stroke="#2563eb" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
