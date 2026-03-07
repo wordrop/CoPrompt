@@ -828,9 +828,25 @@ return (
           
           {/* MC's AI Analysis */}
           {session.aiAnalysis && session.sessionType !== 'performance' && (
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-sm font-semibold text-blue-900 mb-2">MC's Initial AI Analysis:</p>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{session.aiAnalysis}</p>
+            <div className="mt-4 border border-blue-200 rounded-lg">
+              <div
+                className="flex items-center justify-between p-3 cursor-pointer bg-blue-50 rounded-lg hover:bg-blue-100"
+                onClick={() => toggleCard('mcAnalysis')}
+              >
+                <p className="text-sm font-semibold text-blue-900">MC's Initial AI Analysis</p>
+                {isRound2 && (
+                  <span className="text-xs text-blue-600">{expandedCards['mcAnalysis'] ? '▲ Collapse' : '▼ Expand'}</span>
+                )}
+              </div>
+              {(!isRound2 || expandedCards['mcAnalysis']) && (
+                <div className="p-3">
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                    {isRound2 && !expandedCards['mcAnalysis']
+                      ? session.aiAnalysis.slice(0, 150) + '...'
+                      : session.aiAnalysis}
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
