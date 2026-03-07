@@ -127,6 +127,8 @@ export default function CollaboratorRoom({ sessionId }) {
   const urlParams = new URLSearchParams(window.location.search);
   const role = urlParams.get('role');
   const isRound2 = urlParams.get('round') === '2';
+  const [expandedCards, setExpandedCards] = useState({});
+  const toggleCard = (key) => setExpandedCards(prev => ({ ...prev, [key]: !prev[key] }));
 useEffect(() => {
     if (session && session.sessionType && role) {
       const roleLower = role.toLowerCase();
@@ -758,29 +760,58 @@ return (
           </div>
         </div>
 {/* Round 2 Context Package */}
+        {/* Round 2 Context Package */}
         {isRound2 && (
           <div className="mb-6 space-y-4">
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
               <p className="text-sm font-semibold text-orange-900">🔁 You are a Round 2 Senior Panelist</p>
               <p className="text-sm text-orange-800 mt-1">Review the Round 1 synthesis and panel assessments below. Your role is to validate, challenge, or confirm the hiring recommendation.</p>
             </div>
+
+            {/* Round 1 Synthesis - collapsible */}
             {(session.synthesisResult || session.synthesis) && (
-              <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-orange-400">
-                <h2 className="text-xl font-bold text-gray-900 mb-3">📊 Round 1 Synthesis</h2>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{session.synthesisResult || session.synthesis}</p>
+              <div className="bg-white rounded-lg shadow-md border-l-4 border-orange-400">
+                <div
+                  className="flex items-center justify-between p-4 cursor-pointer"
+                  onClick={() => toggleCard('synthesis')}
+                >
+                  <h2 className="text-base font-bold text-gray-900">📊 Round 1 Synthesis</h2>
+                  <span className="text-sm text-orange-600">{expandedCards['synthesis'] ? '▲ Collapse' : '▼ Expand'}</span>
+                </div>
+                <div className="px-4 pb-4">
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                    {expandedCards['synthesis']
+                      ? (session.synthesisResult || session.synthesis)
+                      : (session.synthesisResult || session.synthesis).slice(0, 200) + '...'}
+                  </p>
+                </div>
               </div>
             )}
+
+            {/* Round 1 Panel Assessments - each collapsible */}
             {session.submissions && session.submissions.length > 0 && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">👥 Round 1 Panel Assessments</h2>
-                <div className="space-y-4">
+              <div className="bg-white rounded-lg shadow-md p-4">
+                <h2 className="text-base font-bold text-gray-900 mb-3">👥 Round 1 Panel Assessments</h2>
+                <div className="space-y-3">
                   {session.submissions.map((sub, idx) => (
-                    <div key={idx} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-sm font-semibold text-gray-900">{sub.collaboratorName}</p>
-                        <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded-full">{sub.role}</span>
+                    <div key={idx} className="border border-gray-200 rounded-lg">
+                      <div
+                        className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
+                        onClick={() => toggleCard(`sub_${idx}`)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-white bg-blue-500 px-2 py-0.5 rounded-full">{sub.role}</span>
+                          <span className="text-sm font-medium text-gray-900">{sub.collaboratorName}</span>
+                        </div>
+                        <span className="text-xs text-gray-500">{expandedCards[`sub_${idx}`] ? '▲ Collapse' : '▼ Read full'}</span>
                       </div>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{sub.analysis}</p>
+                      <div className="px-3 pb-3">
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                          {expandedCards[`sub_${idx}`]
+                            ? sub.analysis
+                            : sub.analysis.slice(0, 150) + '...'}
+                        </p>
+                      </div>
                     </div>
                   ))}
                 </div>
