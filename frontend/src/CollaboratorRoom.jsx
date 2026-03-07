@@ -449,6 +449,10 @@ Build on MC's analysis - add NEW perspective, don't repeat existing points.`;
   };
 
   const submitToMainRoom = async () => {
+    if (session?.status === 'finalized') {
+      alert('This session has been finalized. No further submissions are accepted.');
+      return;
+    }
     if (!collaboratorName.trim()) {
       alert('Please enter your name');
       return;
@@ -1027,6 +1031,7 @@ return (
         </div>
 
         {/* Submit Button */}
+        {session?.status !== 'finalized' && (
         <div className="bg-white rounded-lg shadow-md p-6">
           <button
             onClick={submitToMainRoom}
@@ -1043,6 +1048,7 @@ return (
             Once submitted, {session.mcName} will be able to view your analysis
           </p>
         </div>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import CoPromptLogo from './CoPromptLogo';
 import { useState, useEffect } from 'react';
 import { db, storage } from './firebase';
-import { collection, addDoc, doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import Landing from './Landing';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import CollaboratorRoom from './CollaboratorRoom';
@@ -45,6 +45,8 @@ const params = new URLSearchParams(window.location.search);
   const [sessionCount, setSessionCount] = useState(0);
   const [session, setSession] = useState(null);
   const [inviteLinks, setInviteLinks] = useState({});
+  const [showAddCollaborator, setShowAddCollaborator] = useState(false);
+  const [newCollaboratorRole, setNewCollaboratorRole] = useState('');
 
   // Form states
   const [title, setTitle] = useState('');
@@ -250,6 +252,20 @@ useEffect(() => {
     return () => unsubscribe();
   }
 }, []);
+// Regenerate invite links when session loads from Firebase
+useEffect(() => {
+  if (session && sessionId && Object.keys(inviteLinks).length === 0) {
+    const baseUrl = window.location.origin;
+    const links = {};
+    const roles = session.selectedRoles || [];
+    roles.forEach(role => {
+      links[role] = `${baseUrl}?session=${sessionId}&role=${encodeURIComponent(role)}`;
+    });
+    if (Object.keys(links).length > 0) {
+      setInviteLinks(links);
+    }
+  }
+}, [session, sessionId]);
 const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files);
     
@@ -563,6 +579,55 @@ const resetAndGoHome = () => {
                   </button>
                 ))}
               </div>
+              {!session?.synthesisResult && session?.status !== 'finalized' && (
+                <div className="mt-3">
+                  {!showAddCollaborator ? (
+                    <button
+                      onClick={() => setShowAddCollaborator(true)}
+                      className="text-sm text-purple-700 hover:text-purple-900 font-medium"
+                    >
+                      ➕ Add Collaborator
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 mt-1">
+                      <input
+                        type="text"
+                        value={newCollaboratorRole}
+                        onChange={(e) => setNewCollaboratorRole(e.target.value)}
+                        placeholder="e.g. Legal, Finance, CTO"
+                        className="px-3 py-1.5 text-sm border border-purple-300 rounded-lg w-48"
+                      />
+                      <button
+                        onClick={async () => {
+                          const role = newCollaboratorRole.trim();
+                          if (!role) return;
+                          const baseUrl = window.location.origin;
+                          const newLink = `${baseUrl}?session=${sessionId}&role=${encodeURIComponent(role)}`;
+                          const updatedLinks = { ...inviteLinks, [role]: newLink };
+                          setInviteLinks(updatedLinks);
+                          const sessionRef = doc(db, 'sessions', sessionId);
+                          await updateDoc(sessionRef, {
+                            selectedRoles: [...(session.selectedRoles || []), role]
+                          });
+                          setNewCollaboratorRole('');
+                          setShowAddCollaborator(false);
+                          navigator.clipboard.writeText(newLink);
+                          alert(`✅ ${role} added! Invite link copied to clipboard.`);
+                        }}
+                        className="px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700"
+                      >
+                        Add & Copy Link
+                      </button>
+                      <button
+                        onClick={() => { setShowAddCollaborator(false); setNewCollaboratorRole(''); }}
+                        className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
