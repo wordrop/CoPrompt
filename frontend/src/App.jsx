@@ -635,7 +635,7 @@ const resetAndGoHome = () => {
           </div>
         )}
 {/* Round 2 Invite Section - appears after synthesis exists */}
-        {session?.synthesisResult && session?.status !== 'finalized' && session?.sessionType === 'hiring' && (
+        {(session?.synthesisResult || session?.synthesis) && session?.status !== 'finalized' && session?.sessionType === 'hiring' && (
           <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-b border-orange-200 p-4">
             <div className="max-w-6xl mx-auto">
               <div className="flex items-center justify-between mb-2">
