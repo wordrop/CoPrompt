@@ -126,6 +126,7 @@ export default function CollaboratorRoom({ sessionId }) {
   // Get role from URL
   const urlParams = new URLSearchParams(window.location.search);
   const role = urlParams.get('role');
+  const isRound2 = urlParams.get('round') === '2';
 useEffect(() => {
     if (session && session.sessionType && role) {
       const roleLower = role.toLowerCase();
@@ -410,6 +411,15 @@ Build on MC's analysis - add NEW perspective, don't repeat existing points.`;
           uploadedDocuments: [...(session.uploadedDocuments || []), ...uploadedFiles],
           sessionType: session.sessionType || 'general',
           collaboratorRole: role || 'general',
+          isRound2: isRound2,
+          round2Context: isRound2 ? {
+            synthesis: session.synthesisResult || session.synthesis || '',
+            submissions: (session.submissions || []).map(s => ({
+              role: s.role,
+              name: s.collaboratorName,
+              analysis: s.analysis
+            }))
+          } : null,
         }),
       });
 
@@ -475,7 +485,9 @@ Build on MC's analysis - add NEW perspective, don't repeat existing points.`;
       };
 
       const sessionRef = doc(db, 'sessions', sessionId);
-      await updateDoc(sessionRef, {
+      await updateDoc(sessionRef, isRound2 ? {
+        round2Submissions: arrayUnion(submission)
+      } : {
         submissions: arrayUnion(submission)
       });
 
@@ -745,7 +757,37 @@ return (
             </div>
           </div>
         </div>
-
+{/* Round 2 Context Package */}
+        {isRound2 && (
+          <div className="mb-6 space-y-4">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <p className="text-sm font-semibold text-orange-900">🔁 You are a Round 2 Senior Panelist</p>
+              <p className="text-sm text-orange-800 mt-1">Review the Round 1 synthesis and panel assessments below. Your role is to validate, challenge, or confirm the hiring recommendation.</p>
+            </div>
+            {(session.synthesisResult || session.synthesis) && (
+              <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-orange-400">
+                <h2 className="text-xl font-bold text-gray-900 mb-3">📊 Round 1 Synthesis</h2>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{session.synthesisResult || session.synthesis}</p>
+              </div>
+            )}
+            {session.submissions && session.submissions.length > 0 && (
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-4">👥 Round 1 Panel Assessments</h2>
+                <div className="space-y-4">
+                  {session.submissions.map((sub, idx) => (
+                    <div key={idx} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-semibold text-gray-900">{sub.collaboratorName}</p>
+                        <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded-full">{sub.role}</span>
+                      </div>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{sub.analysis}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         {/* MC Context */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">

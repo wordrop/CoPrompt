@@ -983,7 +983,7 @@ res.json({
 
 app.post('/api/generate-collaborator-analysis', rateLimitMiddleware, async (req, res) => {
   try {
-    const { prompt, customPrompt, topic, mcAnalysis, context, uploadedDocuments, sessionType, collaboratorRole } = req.body;
+    const { prompt, customPrompt, topic, mcAnalysis, context, uploadedDocuments, sessionType, collaboratorRole, isRound2, round2Context } = req.body;
 
     if (!prompt || !topic) {
       return res.status(400).json({ error: 'Prompt and topic are required' });
@@ -1001,14 +1001,39 @@ app.post('/api/generate-collaborator-analysis', rateLimitMiddleware, async (req,
       : `${prompt}${documentContext ? `\n\n=== UPLOADED DOCUMENTS ===\n${documentContext}` : ''}`;
 
     // Get domain-specific system prompt for collaborator
-const systemPrompt = getSystemPromptForCollaborator(sessionType, collaboratorRole);
+    let systemPrompt;
+    let finalPrompt = fullPrompt;
 
-const message = await anthropic.messages.create({
-  model: 'claude-sonnet-4-20250514',
-  max_tokens: 8000,
-  system: systemPrompt,
-  messages: [{ role: 'user', content: fullPrompt }],
-});
+    if (isRound2 && round2Context) {
+      systemPrompt = `You are a senior decision maker conducting a Round 2 hiring review.
+
+Round 1 panel has already assessed the candidate. Your role is to:
+1. Review the Round 1 synthesis and individual assessments provided
+2. Validate, challenge, or confirm the hiring recommendation
+3. Apply your senior perspective — consider strategic fit, team dynamics, long-term potential
+4. Give a clear final recommendation with your reasoning
+
+Be direct and decisive. You are the senior voice in this process.`;
+
+      finalPrompt = `ROUND 1 SYNTHESIS:
+${round2Context.synthesis}
+
+ROUND 1 PANEL ASSESSMENTS:
+${round2Context.submissions.map(s => `[${s.role} — ${s.name}]\n${s.analysis}`).join('\n\n---\n\n')}
+
+${documentContext ? `=== ADDITIONAL DOCUMENTS ===\n${documentContext}\n\n` : ''}YOUR TASK:
+As ${collaboratorRole}, provide your senior assessment and final hiring recommendation.
+${customPrompt ? `\nSpecific focus: ${customPrompt}` : ''}`;
+    } else {
+      systemPrompt = getSystemPromptForCollaborator(sessionType, collaboratorRole);
+    }
+
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 8000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: finalPrompt }],
+    });
 
 
     const responseText = message.content[0].text;

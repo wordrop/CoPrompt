@@ -47,6 +47,9 @@ const params = new URLSearchParams(window.location.search);
   const [inviteLinks, setInviteLinks] = useState({});
   const [showAddCollaborator, setShowAddCollaborator] = useState(false);
   const [newCollaboratorRole, setNewCollaboratorRole] = useState('');
+  const [round2InviteLinks, setRound2InviteLinks] = useState({});
+  const [showRound2Panel, setShowRound2Panel] = useState(false);
+  const [newRound2Role, setNewRound2Role] = useState('');
 
   // Form states
   const [title, setTitle] = useState('');
@@ -631,7 +634,79 @@ const resetAndGoHome = () => {
             </div>
           </div>
         )}
-
+{/* Round 2 Invite Section - appears after synthesis exists */}
+        {session?.synthesisResult && session?.status !== 'finalized' && session?.sessionType === 'hiring' && (
+          <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-b border-orange-200 p-4">
+            <div className="max-w-6xl mx-auto">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-bold text-gray-900">🔁 Round 2 — Senior Panel</h3>
+                <span className="text-xs text-gray-500">Panel receives Round 1 synthesis + all submissions</span>
+              </div>
+              {Object.keys(round2InviteLinks).length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                  {Object.entries(round2InviteLinks).map(([role, link]) => (
+                    <button
+                      key={role}
+                      onClick={() => {
+                        navigator.clipboard.writeText(link);
+                        alert(`Copied Round 2 invite for ${role}!`);
+                      }}
+                      className="flex items-center justify-between bg-white px-3 py-2 rounded-lg hover:bg-orange-50 transition-colors border border-orange-200 text-sm"
+                    >
+                      <span className="font-medium text-gray-900">{role}</span>
+                      <span className="text-orange-600">📋</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!showRound2Panel ? (
+                <button
+                  onClick={() => setShowRound2Panel(true)}
+                  className="text-sm text-orange-700 hover:text-orange-900 font-medium"
+                >
+                  ➕ Invite Round 2 Panelist
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newRound2Role}
+                    onChange={(e) => setNewRound2Role(e.target.value)}
+                    placeholder="e.g. CEO, Business Head, CHRO"
+                    className="px-3 py-1.5 text-sm border border-orange-300 rounded-lg w-56"
+                  />
+                  <button
+                    onClick={async () => {
+                      const role = newRound2Role.trim();
+                      if (!role) return;
+                      const baseUrl = window.location.origin;
+                      const newLink = `${baseUrl}?session=${sessionId}&role=${encodeURIComponent(role)}&round=2`;
+                      const updatedLinks = { ...round2InviteLinks, [role]: newLink };
+                      setRound2InviteLinks(updatedLinks);
+                      const sessionRef = doc(db, 'sessions', sessionId);
+                      await updateDoc(sessionRef, {
+                        round2Roles: [...(session.round2Roles || []), role]
+                      });
+                      setNewRound2Role('');
+                      setShowRound2Panel(false);
+                      navigator.clipboard.writeText(newLink);
+                      alert(`✅ ${role} added to Round 2! Invite link copied.`);
+                    }}
+                    className="px-3 py-1.5 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700"
+                  >
+                    Add & Copy Link
+                  </button>
+                  <button
+                    onClick={() => { setShowRound2Panel(false); setNewRound2Role(''); }}
+                    className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         {/* Dashboard */}
         <MCDashboard sessionId={sessionId} session={session} />
       </div>
