@@ -209,7 +209,8 @@ export default function MCDashboard({ sessionId, session }) {
           analyses: submissions,
           topic: session.title,
           sessionId: sessionId,
-          sessionType: session.sessionType || 'general'
+          sessionType: session.sessionType || 'general',
+          orgContext: session.orgContext || ''
         }),
       });
 
@@ -258,7 +259,8 @@ export default function MCDashboard({ sessionId, session }) {
           analyses: submissions,
           feedback: synthesisReviews,
           revisionInstructions: revisionInstructions,
-          topic: session.title
+          topic: session.title,
+          orgContext: session.orgContext || ''
         }),
       });
 

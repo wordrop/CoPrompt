@@ -101,6 +101,7 @@ Context: [Add 1-2 sentences about your company and this opportunity — e.g. "We
 Focus particularly on win probability, our genuine differentiators, and the risks we would be taking on if we bid.`,
 };
   const [context, setContext] = useState('');
+  const [orgContext, setOrgContext] = useState('');
   const [mcName, setMcName] = useState('');
   const [mcRole, setMcRole] = useState('Project Lead');
   const [mcCustomRole, setMcCustomRole] = useState('');
@@ -358,7 +359,8 @@ const handleFileUpload = async (e) => {
     prompt: prompt,
     topic: title,
     uploadedDocuments: uploadedFiles,
-    sessionType: sessionType || 'general',  // ADD THIS LINE
+    sessionType: sessionType || 'general',
+    orgContext: orgContext.trim(),
   }),
 });
 
@@ -427,15 +429,16 @@ const handleFileUpload = async (e) => {
       
       const sessionData = {
         title,
-        sessionType: sessionType || 'general',  // ADD THIS LINE        
+        sessionType: sessionType || 'general',
         context,
+        orgContext: orgContext.trim(),
         aiAnalysis,
         mcName,
         mcRole: finalRole,
         selectedRoles: [...selectedRoles, ...customRoles],
         uploadedDocuments: uploadedFiles,
         createdAt: new Date().toISOString(),
-	status: 'active',
+        status: 'active',
         submissions: [],
         synthesis: ''
       };
@@ -969,6 +972,22 @@ const resetAndGoHome = () => {
               onChange={(e) => setContext(e.target.value)}
               placeholder="Example: Build an AI-powered meal planning app for diabetics..."
               rows={6}
+              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
+          </div>
+{/* Organisational Context */}
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-slate-200 mb-2">
+              Organisational Context <span className="text-slate-400 font-normal">(Optional)</span>
+            </label>
+            <p className="text-xs text-slate-400 mb-3">
+              Describe your organisation's culture, risk appetite, or decision style. The AI will use this to tailor its analysis to your context.
+            </p>
+            <textarea
+              value={orgContext}
+              onChange={(e) => setOrgContext(e.target.value)}
+              placeholder="e.g. We are a mid-size financial services firm. We value execution over pedigree and move fast. Our risk appetite is moderate — we are regulated but not risk-averse."
+              rows={3}
               className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
           </div>

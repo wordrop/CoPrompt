@@ -826,7 +826,7 @@ app.post('/api/save-session', async (req, res) => {
 
 app.post('/api/generate-analysis', rateLimitMiddleware, async (req, res) => {
   try {
-    const { prompt, topic, uploadedDocuments, sessionType } = req.body;
+    const { prompt, topic, uploadedDocuments, sessionType, orgContext } = req.body;
 
     if (!prompt || !topic) {
       return res.status(400).json({ error: 'Prompt and topic are required' });
@@ -839,9 +839,10 @@ app.post('/api/generate-analysis', rateLimitMiddleware, async (req, res) => {
       documentContext = await extractTextFromDocuments(uploadedDocuments);
     }
 
+    const orgContextBlock = orgContext ? `\n\n=== ORGANISATIONAL CONTEXT ===\n${orgContext}` : '';
     const fullPrompt = documentContext 
-      ? `${prompt}\n\n=== UPLOADED DOCUMENTS ===\n${documentContext}\n\nPlease analyze the above context including the uploaded documents.`
-      : prompt;
+      ? `${prompt}${orgContextBlock}\n\n=== UPLOADED DOCUMENTS ===\n${documentContext}\n\nPlease analyze the above context including the uploaded documents.`
+      : `${prompt}${orgContextBlock}`;
 
 // Get domain-specific system prompt
     const systemPrompt = getSystemPromptForAnalysis(sessionType);
@@ -983,7 +984,7 @@ res.json({
 
 app.post('/api/generate-collaborator-analysis', rateLimitMiddleware, async (req, res) => {
   try {
-    const { prompt, customPrompt, topic, mcAnalysis, context, uploadedDocuments, sessionType, collaboratorRole, isRound2, round2Context } = req.body;
+    const { prompt, customPrompt, topic, mcAnalysis, context, uploadedDocuments, sessionType, collaboratorRole, isRound2, round2Context, orgContext } = req.body;
 
     if (!prompt || !topic) {
       return res.status(400).json({ error: 'Prompt and topic are required' });
@@ -996,9 +997,10 @@ app.post('/api/generate-collaborator-analysis', rateLimitMiddleware, async (req,
       documentContext = await extractTextFromDocuments(uploadedDocuments);
     }
 
+    const orgContextBlock = orgContext ? `\n\n=== ORGANISATIONAL CONTEXT ===\n${orgContext}` : '';
     const fullPrompt = customPrompt 
-      ? `${customPrompt}\n\nTopic to analyze: ${topic}\n\nAdditional context: ${prompt}${documentContext ? `\n\n=== UPLOADED DOCUMENTS ===\n${documentContext}` : ''}`
-      : `${prompt}${documentContext ? `\n\n=== UPLOADED DOCUMENTS ===\n${documentContext}` : ''}`;
+      ? `${customPrompt}\n\nTopic to analyze: ${topic}\n\nAdditional context: ${prompt}${orgContextBlock}${documentContext ? `\n\n=== UPLOADED DOCUMENTS ===\n${documentContext}` : ''}`
+      : `${prompt}${orgContextBlock}${documentContext ? `\n\n=== UPLOADED DOCUMENTS ===\n${documentContext}` : ''}`;
 
     // Get domain-specific system prompt for collaborator
     let systemPrompt;
@@ -1091,7 +1093,7 @@ app.post('/api/submit-synthesis-review', async (req, res) => {
 
 app.post('/api/generate-synthesis', rateLimitMiddleware, async (req, res) => {
   try {
-    const { analyses, topic, sessionId, sessionType } = req.body;
+    const { analyses, topic, sessionId, sessionType, orgContext } = req.body;
 
     if (!analyses || !Array.isArray(analyses) || analyses.length === 0) {
       return res.status(400).json({ error: 'Analyses array is required' });
@@ -1100,6 +1102,7 @@ app.post('/api/generate-synthesis', rateLimitMiddleware, async (req, res) => {
     const sessionRef = doc(db, 'sessions', sessionId);
     console.log(`🔄 Generating synthesis from ${analyses.length} analyses...`);
 
+    const orgContextBlock = orgContext ? `\n\nORGANISATIONAL CONTEXT:\n${orgContext}` : '';
     const isStudent = sessionType === 'student';
     const isProject = sessionType === 'project';
     let synthesisPrompt = isStudent
@@ -1121,10 +1124,10 @@ WORKSTREAM UPDATES:
       : `You are synthesizing expert analyses into an EXECUTIVE DECISION BRIEF.
 
 STRATEGIC QUESTION:
-${topic}
+${topic}${orgContextBlock}
 
 EXPERT CONTRIBUTIONS:
-`; 
+`;
     analyses.forEach((analysis, index) => {
       synthesisPrompt += `\n[${analysis.collaboratorName}]:\n${analysis.analysis}\n`;
     });
@@ -1327,7 +1330,7 @@ CRITICAL RULES:
 
 app.post('/api/revise-synthesis', async (req, res) => {
   try {
-    const { sessionId, originalSynthesis, analyses, feedback, revisionInstructions, topic } = req.body;
+    const { sessionId, originalSynthesis, analyses, feedback, revisionInstructions, topic, orgContext } = req.body;
 
     console.log('📝 Revising synthesis for session:', sessionId);
     console.log('📊 Feedback items:', feedback.length);
@@ -1354,8 +1357,9 @@ Comment: ${f.comment || 'No comment'}`
       `${a.collaboratorName} (${a.role || 'Collaborator'}):\n${a.analysis}`
     ).join('\n\n---\n\n');
 
+   const orgContextBlock = orgContext ? `\nORGANISATIONAL CONTEXT:\n${orgContext}\n` : '';
     const revisionPrompt = `You are synthesizing strategic analyses for a decision-maker.
-
+${orgContextBlock}
 ORIGINAL SYNTHESIS (Version ${currentVersion}):
 ${originalSynthesis}
 

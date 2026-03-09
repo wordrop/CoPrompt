@@ -412,6 +412,7 @@ Build on MC's analysis - add NEW perspective, don't repeat existing points.`;
           context: session.context,
           uploadedDocuments: [...(session.uploadedDocuments || []), ...uploadedFiles],
           sessionType: session.sessionType || 'general',
+          orgContext: session.orgContext || '',
           collaboratorRole: role || 'general',
           isRound2: isRound2,
           round2Context: isRound2 ? {
