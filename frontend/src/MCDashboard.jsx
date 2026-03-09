@@ -4,6 +4,29 @@ import { updateSessionStatus } from './sessionStorage';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 
 // Add this helper component after imports, before the main export
+function renderSectionContent(text) {
+  if (!text) return null;
+  let html = text;
+  // Tables
+  html = html.replace(/(\|[^\n]+\|[\r\n]+)((?:\|[^\n]+\|[\r\n]*)+)/g, (match) => {
+    const rows = match.trim().split('\n').filter(r => r.trim());
+    const tableRows = rows.map((row, i) => {
+      if (row.match(/^\|[-:\s|]+\|$/)) return '';
+      const cells = row.split('|').filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+      const tag = i === 0 ? 'th' : 'td';
+      const cellClass = i === 0
+        ? 'px-3 py-2 text-left font-semibold border border-gray-300 bg-gray-100 text-gray-900'
+        : 'px-3 py-2 border border-gray-200 text-gray-800';
+      return `<tr>${cells.map(c => `<${tag} class="${cellClass}">${c.trim()}</${tag}>`).join('')}</tr>`;
+    }).filter(r => r);
+    return `<div class="overflow-x-auto my-3"><table class="w-full border-collapse text-sm">${tableRows.join('')}</table></div>`;
+  });
+  // Bold
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  // Preserve line breaks
+  html = html.replace(/\n/g, '<br/>');
+  return <div className="text-gray-800 leading-relaxed" dangerouslySetInnerHTML={{ __html: html }} />;
+}
 function SynthesisDisplay({ synthesis }) {
   // Parse synthesis into sections
   const sections = parseSynthesisSections(synthesis);
@@ -17,9 +40,7 @@ function SynthesisDisplay({ synthesis }) {
             <span className="text-2xl">🤝</span>
             Areas of Agreement
           </h3>
-          <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
-            {sections.agreement}
-          </div>
+          {renderSectionContent(sections.agreement)}
         </div>
       )}
 
@@ -30,9 +51,7 @@ function SynthesisDisplay({ synthesis }) {
             <span className="text-2xl">⚔️</span>
             Areas of Conflict
           </h3>
-          <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
-            {sections.conflict}
-          </div>
+          {renderSectionContent(sections.conflict)}
         </div>
       )}
 
@@ -43,9 +62,7 @@ function SynthesisDisplay({ synthesis }) {
             <span className="text-2xl">⚠️</span>
             Critical Points & Red Flags
           </h3>
-          <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
-            {sections.critical}
-          </div>
+          {renderSectionContent(sections.critical)}
         </div>
       )}
 
@@ -56,9 +73,7 @@ function SynthesisDisplay({ synthesis }) {
             <span className="text-2xl">📊</span>
             Executive Summary & Recommendation
           </h3>
-          <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
-            {sections.summary}
-          </div>
+          {renderSectionContent(sections.summary)}
         </div>
       )}
 
@@ -449,7 +464,7 @@ export default function MCDashboard({ sessionId, session }) {
           {session.aiAnalysis && (
             <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
               <p className="text-sm font-semibold text-purple-900 mb-2">Your AI Analysis:</p>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{session.aiAnalysis}</p>
+              <div className="text-sm">{renderSectionContent(session.aiAnalysis)}</div>
             </div>
           )}
         </div>

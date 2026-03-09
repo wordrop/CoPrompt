@@ -2,6 +2,26 @@ import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, updateDoc, arrayUnion, onSnapshot } from 'firebase/firestore';
 import { db, storage } from './firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+function renderSectionContent(text) {
+  if (!text) return null;
+  let html = text;
+  html = html.replace(/(\|[^\n]+\|[\r\n]+)((?:\|[^\n]+\|[\r\n]*)+)/g, (match) => {
+    const rows = match.trim().split('\n').filter(r => r.trim());
+    const tableRows = rows.map((row, i) => {
+      if (row.match(/^\|[-:\s|]+\|$/)) return '';
+      const cells = row.split('|').filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+      const tag = i === 0 ? 'th' : 'td';
+      const cellClass = i === 0
+        ? 'px-3 py-2 text-left font-semibold border border-gray-300 bg-gray-100 text-gray-900'
+        : 'px-3 py-2 border border-gray-200 text-gray-800';
+      return `<tr>${cells.map(c => `<${tag} class="${cellClass}">${c.trim()}</${tag}>`).join('')}</tr>`;
+    }).filter(r => r);
+    return `<div class="overflow-x-auto my-3"><table class="w-full border-collapse text-sm">${tableRows.join('')}</table></div>`;
+  });
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\n/g, '<br/>');
+  return <div className="text-gray-800 leading-relaxed" dangerouslySetInnerHTML={{ __html: html }} />;
+}
 
 // Add this component after imports, before the main CollaboratorRoom export
 function SynthesisReviewForm({ sessionId, collaboratorName, collaboratorRole, onReviewSubmitted }) {
@@ -635,7 +655,7 @@ Build on MC's analysis - add NEW perspective, don't repeat existing points.`;
               🎯 MC's Initial Analysis
             </h2>
             <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{session.aiAnalysis}</p>
+              <div className="text-sm">{renderSectionContent(session.aiAnalysis)}</div>
             </div>
           </div>
         )}
