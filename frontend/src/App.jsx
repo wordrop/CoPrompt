@@ -279,17 +279,6 @@ useEffect(() => {
 // Regenerate invite links when session loads from Firebase
 useEffect(() => {
   if (session && sessionId && Object.keys(inviteLinks).length === 0) {
-// Keep session in sync with Firebase after creation
-useEffect(() => {
-  if (!sessionId || mode !== 'mc-dashboard') return;
-  const sessionRef = doc(db, 'sessions', sessionId);
-  const unsubscribe = onSnapshot(sessionRef, (docSnapshot) => {
-    if (docSnapshot.exists()) {
-      setSession(docSnapshot.data());
-    }
-  });
-  return () => unsubscribe();
-}, [sessionId, mode]);
     const baseUrl = window.location.origin;
     const links = {};
     const roles = session.selectedRoles || [];
@@ -301,6 +290,19 @@ useEffect(() => {
     }
   }
 }, [session, sessionId]);
+
+// Keep session in sync with Firebase after creation
+useEffect(() => {
+  if (!sessionId || mode !== 'mc-dashboard') return;
+  const sessionRef = doc(db, 'sessions', sessionId);
+  const unsubscribe = onSnapshot(sessionRef, (docSnapshot) => {
+    if (docSnapshot.exists()) {
+      setSession(docSnapshot.data());
+    }
+  });
+  return () => unsubscribe();
+}, [sessionId, mode]);
+
 const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files);
     
