@@ -12,6 +12,26 @@ import Privacy from './Privacy';
 import SessionDashboard from './SessionDashboard';
 import { saveSession, checkRateLimit, trackEvent, getAllSessions, checkSessionGate, saveSignupData, getSignupData, saveDraft, getDraft, clearDraft } from './sessionStorage';
 
+function renderSectionContent(text) {
+  if (!text) return null;
+  let html = text;
+  html = html.replace(/(\|[^\n]+\|[\r\n]+)((?:\|[^\n]+\|[\r\n]*)+)/g, (match) => {
+    const rows = match.trim().split('\n').filter(r => r.trim());
+    const tableRows = rows.map((row, i) => {
+      if (row.match(/^\|[-:\s|]+\|$/)) return '';
+      const cells = row.split('|').filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+      const tag = i === 0 ? 'th' : 'td';
+      const cellClass = i === 0
+        ? 'px-3 py-2 text-left font-semibold border border-purple-700 bg-purple-900/40 text-purple-200'
+        : 'px-3 py-2 border border-purple-800 text-slate-200';
+      return `<tr>${cells.map(c => `<${tag} class="${cellClass}">${c.trim()}</${tag}>`).join('')}</tr>`;
+    }).filter(r => r);
+    return `<div class="overflow-x-auto my-3"><table class="w-full border-collapse text-sm">${tableRows.join('')}</table></div>`;
+  });
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="text-purple-300">$1</strong>');
+  html = html.replace(/\n/g, '<br/>');
+  return <div className="text-slate-300 leading-relaxed" dangerouslySetInnerHTML={{ __html: html }} />;
+}
 function App() {
 const currentPath = window.location.pathname;
   if (currentPath === '/privacy') return <Privacy />;
@@ -1099,7 +1119,7 @@ const resetAndGoHome = () => {
             {aiAnalysis && (
               <div className="mt-4 p-4 bg-purple-900/30 border border-purple-700 rounded-lg">
                 <p className="text-sm font-semibold text-purple-200 mb-2">AI Analysis:</p>
-                <p className="text-sm text-slate-300 whitespace-pre-wrap max-h-64 overflow-y-auto">{aiAnalysis}</p>
+                <div className="text-sm max-h-64 overflow-y-auto">{renderSectionContent(aiAnalysis)}</div>
               </div>
             )}
           </div>
