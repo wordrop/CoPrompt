@@ -860,12 +860,10 @@ return (
                 )}
               </div>
               {(!isRound2 || expandedCards['mcAnalysis']) && (
-                <div className="p-3">
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                    {isRound2 && !expandedCards['mcAnalysis']
-                      ? session.aiAnalysis.slice(0, 150) + '...'
-                      : session.aiAnalysis}
-                  </p>
+                <div className="p-3 text-sm">
+                  {isRound2 && !expandedCards['mcAnalysis']
+                    ? <p className="text-gray-700">{session.aiAnalysis.slice(0, 150) + '...'}</p>
+                    : renderSectionContent(session.aiAnalysis)}
                 </div>
               )}
             </div>
