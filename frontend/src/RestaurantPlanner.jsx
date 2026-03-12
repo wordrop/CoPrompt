@@ -1,6 +1,34 @@
 import { useState, useEffect } from 'react';
 import { db } from './firebase';
 import { collection, addDoc, doc, onSnapshot } from 'firebase/firestore';
+// Geocode a location string to lat/lng using OpenStreetMap Nominatim (free, no API key)
+async function geocodeLocation(area, city) {
+  const query = encodeURIComponent(`${area}, ${city}`);
+  const url = `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`;
+  const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+  const data = await res.json();
+  if (data && data.length > 0) {
+    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), display: data[0].display_name };
+  }
+  return null;
+}
+
+// Calculate geographic centroid (true equidistant midpoint) from array of {lat, lng} points
+function calculateCentroid(points) {
+  const valid = points.filter(p => p !== null);
+  if (valid.length === 0) return null;
+  const avg = valid.reduce((acc, p) => ({ lat: acc.lat + p.lat, lng: acc.lng + p.lng }), { lat: 0, lng: 0 });
+  return { lat: avg.lat / valid.length, lng: avg.lng / valid.length };
+}
+
+// Haversine formula — straight-line distance between two lat/lng points in km
+function haversineDistance(p1, p2) {
+  const R = 6371;
+  const dLat = (p2.lat - p1.lat) * Math.PI / 180;
+  const dLng = (p2.lng - p1.lng) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(p1.lat * Math.PI/180) * Math.cos(p2.lat * Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
 
 export default function RestaurantPlanner() {
   const [mode, setMode] = useState('create'); // 'create', 'input', 'results'
@@ -262,6 +290,31 @@ ${otherPrefs ? `Other: ${otherPrefs}` : ''}
     setIsGenerating(true);
 
     try {
+      // Geocode each person's location
+      const geocoded = await Promise.all(
+        session.submissions.map(async (sub) => {
+          const locationLine = sub.analysis.match(/Location: (.+)/)?.[1] || '';
+          const coords = locationLine ? await geocodeLocation(locationLine, session.city) : null;
+          return { name: sub.collaboratorName, coords, analysis: sub.analysis };
+        })
+      );
+
+      // Calculate true equidistant centroid
+      const centroid = calculateCentroid(geocoded.map(g => g.coords));
+
+      // Build distance context for each person
+      const distanceContext = geocoded.map(g => {
+        if (g.coords && centroid) {
+          const dist = haversineDistance(g.coords, centroid).toFixed(1);
+          return `${g.name}: ${dist} km from midpoint (at ${g.coords.lat.toFixed(4)}, ${g.coords.lng.toFixed(4)})`;
+        }
+        return `${g.name}: location could not be geocoded`;
+      }).join('\n');
+
+      const centroidStr = centroid
+        ? `Geographic midpoint: ${centroid.lat.toFixed(4)}, ${centroid.lng.toFixed(4)} — recommend restaurants within 2km of this point`
+        : 'Geographic midpoint: could not be calculated — use general city centre';
+
       // Format all submissions for the prompt
       const friendsInputs = session.submissions.map(sub => 
         `${sub.collaboratorName}:\n${sub.analysis}`
@@ -287,7 +340,7 @@ ${otherPrefs ? `Other: ${otherPrefs}` : ''}
 
       const meetupTimeStr = session.meetupTime || '8:00 PM';
 
-      const prompt = `You are helping a group of friends in ${session.city}, India find the perfect restaurant to meet for dinner.
+      const prompt = `You are helping a group of friends find the perfect restaurant to meet for dinner in ${session.city}.
 
 MEETING DETAILS:
 📅 Date: ${meetupDateStr}
@@ -296,11 +349,17 @@ MEETING DETAILS:
 👥 Confirmed Attendees: ${confirmedCount}
 ${declinedCount > 0 ? `❌ Unable to Attend: ${declinedCount}` : ''}
 
+GEOGRAPHIC DATA (scientifically calculated using Haversine formula):
+${centroidStr}
+
+Individual distances to midpoint:
+${distanceContext}
+
 FRIENDS' PREFERENCES:
 ${friendsInputs}
 
-TASK: Recommend 2-3 restaurants in ${session.city} that work for EVERYONE. Consider:
-1. Geographic convenience (minimize total travel time for all)
+TASK: Recommend 2-3 restaurants near the geographic midpoint above that work for EVERYONE. Consider:
+1. Geographic convenience — prioritise locations close to the calculated midpoint coordinates
 2. Satisfy ALL dietary requirements (if anyone is veg-only, must have excellent veg options)
 3. Fit within everyone's budget constraints
 4. Match alcohol preferences (if anyone prefers no alcohol, choose places with good non-alcoholic options)
@@ -975,7 +1034,7 @@ Provide 2-3 options, with the BEST option first.`;
             </div>
           </div>
 
-          <div className="flex gap-4 justify-center">
+          <div className="flex gap-4 justify-center flex-wrap">
             <button
               onClick={resetSession}
               className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-semibold"
@@ -987,6 +1046,23 @@ Provide 2-3 options, with the BEST option first.`;
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
             >
               📲 Share Results
+            </button>
+            <button
+              onClick={() => {
+                // Extract restaurant names from recommendations for the poll
+                const lines = (recommendations || '').split('\n');
+                const restaurants = lines
+                  .filter(l => l.includes('🍽️'))
+                  .map((l, i) => `${i + 1}️⃣ ${l.replace('🍽️', '').trim()}`);
+                const pollText = restaurants.length > 0
+                  ? `🍽️ *Restaurant Vote!*\n\nWhere shall we meet on ${session?.meetupDate || 'our meetup'}?\n\n${restaurants.join('\n')}\n\nReply with your number 👆`
+                  : `🍽️ Check out our restaurant shortlist!\n\n${(recommendations || '').slice(0, 300)}...\n\nVote for your favourite!`;
+                const waUrl = `https://wa.me/?text=${encodeURIComponent(pollText)}`;
+                window.open(waUrl, '_blank');
+              }}
+              className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold"
+            >
+              💬 WhatsApp Poll
             </button>
           </div>
 
