@@ -736,7 +736,7 @@ useEffect(() => {
                 <p className="text-slate-500 text-sm">For small teams getting started</p>
               </div>
               <div className="mb-6">
-                <span className="text-5xl font-bold text-slate-900">$200</span>
+                <span className="text-5xl font-bold text-slate-900">$199</span>
                 <span className="text-slate-500 ml-2">/ pack</span>
               </div>
               <ul className="space-y-3 mb-8 flex-1">
@@ -778,7 +778,7 @@ useEffect(() => {
                 <p className="text-slate-500 text-sm">For teams running regular decision cycles</p>
               </div>
               <div className="mb-6">
-                <span className="text-5xl font-bold text-blue-600">$500</span>
+                <span className="text-5xl font-bold text-blue-600">$499</span>
                 <span className="text-slate-500 ml-2">/ pack</span>
               </div>
               <ul className="space-y-3 mb-8 flex-1">
