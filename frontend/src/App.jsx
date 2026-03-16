@@ -133,6 +133,8 @@ Focus particularly on win probability, our genuine differentiators, and the risk
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [error, setError] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [urlInputs, setUrlInputs] = useState([]);
+  const [urlDraft, setUrlDraft] = useState('');
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [signupName, setSignupName] = useState('');
@@ -392,6 +394,7 @@ const handleFileUpload = async (e) => {
     prompt: prompt,
     topic: title,
     uploadedDocuments: uploadedFiles,
+      urlInputs: urlInputs,
     sessionType: sessionType || 'general',
     orgContext: orgContext.trim(),
   }),
@@ -470,6 +473,7 @@ const handleFileUpload = async (e) => {
         mcRole: finalRole,
         selectedRoles: [...selectedRoles, ...customRoles],
         uploadedDocuments: uploadedFiles,
+        urlInputs: urlInputs,
         createdAt: new Date().toISOString(),
         status: 'active',
         submissions: [],
@@ -1061,6 +1065,50 @@ const resetAndGoHome = () => {
               </label>
             </div>
 
+            {/* URL Input */}
+            <div className="mt-4">
+              <p className="text-sm font-semibold text-slate-200 mb-2">🔗 Or paste a URL</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={urlDraft}
+                  onChange={e => setUrlDraft(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && urlDraft.trim()) {
+                      setUrlInputs([...urlInputs, urlDraft.trim()]);
+                      setUrlDraft('');
+                    }
+                  }}
+                  placeholder="https://example.com/job-description"
+                  className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-slate-200 text-sm placeholder-slate-500 focus:outline-none focus:border-purple-500"
+                />
+                <button
+                  onClick={() => {
+                    if (urlDraft.trim()) {
+                      setUrlInputs([...urlInputs, urlDraft.trim()]);
+                      setUrlDraft('');
+                    }
+                  }}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700"
+                >
+                  Add
+                </button>
+              </div>
+              {urlInputs.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {urlInputs.map((url, i) => (
+                    <div key={i} className="flex items-center justify-between p-2 bg-slate-700 rounded-lg border border-slate-600">
+                      <span className="text-xs text-slate-300 truncate flex-1">🔗 {url}</span>
+                      <button
+                        onClick={() => setUrlInputs(urlInputs.filter((_, idx) => idx !== i))}
+                        className="ml-2 text-slate-400 hover:text-red-400 text-xs"
+                      >✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Uploaded Files List */}
             {uploadedFiles.length > 0 && (
               <div className="mt-4 space-y-2">
@@ -1147,6 +1195,11 @@ const resetAndGoHome = () => {
             <p className="text-xs text-slate-400 mb-3 italic">
               Each brings a unique AI-driven perspective. ({selectedRoles.length + customRoles.length} selected)
             </p>
+            {!aiAnalysis && (
+              <p className="text-xs text-amber-400 mb-3">
+                ⚡ Generate AI Analysis above first — role suggestions will be based on your context.
+              </p>
+            )}
             
             {/* Predefined Roles Grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
@@ -1154,8 +1207,11 @@ const resetAndGoHome = () => {
                 <button
                   key={role}
                   onClick={() => toggleRole(role)}
+                  disabled={!aiAnalysis}
                   className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    selectedRoles.includes(role)
+                    !aiAnalysis
+                      ? 'bg-slate-800 text-slate-600 border-2 border-slate-700 cursor-not-allowed opacity-50'
+                      : selectedRoles.includes(role)
                       ? 'bg-purple-600 text-white border-2 border-purple-400'
                       : 'bg-slate-700 text-slate-300 border-2 border-slate-600 hover:bg-slate-600'
                   }`}

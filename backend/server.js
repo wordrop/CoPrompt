@@ -89,6 +89,27 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+// Helper function to fetch and extract text from a URL
+async function fetchUrlContent(url) {
+  try {
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CoPrompt/1.0)' }
+    });
+    const html = await response.text();
+    // Strip HTML tags and collapse whitespace
+    const text = html
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 15000);
+    return text;
+  } catch (err) {
+    console.error(`❌ Failed to fetch URL: ${url}`, err.message);
+    return `[NOTE: The URL ${url} could not be accessed — the site may block automated access (common with LinkedIn, corporate career portals, and banking sites). Ask the user to copy-paste the content directly instead.]`;
+  }
+}
 // Helper function to extract text from documents
 async function extractTextFromDocuments(documentUrls) {
   if (!documentUrls || documentUrls.length === 0) {
@@ -826,7 +847,7 @@ app.post('/api/save-session', async (req, res) => {
 
 app.post('/api/generate-analysis', rateLimitMiddleware, async (req, res) => {
   try {
-    const { prompt, topic, uploadedDocuments, sessionType, orgContext } = req.body;
+    const { prompt, topic, uploadedDocuments, urlInputs, sessionType, orgContext } = req.body;
 
     if (!prompt || !topic) {
       return res.status(400).json({ error: 'Prompt and topic are required' });
@@ -837,6 +858,11 @@ app.post('/api/generate-analysis', rateLimitMiddleware, async (req, res) => {
     let documentContext = '';
     if (uploadedDocuments && uploadedDocuments.length > 0) {
       documentContext = await extractTextFromDocuments(uploadedDocuments);
+    }
+    if (urlInputs && urlInputs.length > 0) {
+      const urlTexts = await Promise.all(urlInputs.map(u => fetchUrlContent(u)));
+      const urlContext = urlTexts.map((text, i) => `[URL ${i+1}: ${urlInputs[i]}]\n${text}`).join('\n\n');
+      documentContext = documentContext ? `${documentContext}\n\n${urlContext}` : urlContext;
     }
 
     const orgContextBlock = orgContext ? `\n\n=== ORGANISATIONAL CONTEXT ===\n${orgContext}` : '';
