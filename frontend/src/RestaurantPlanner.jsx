@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from './firebase';
-import { collection, addDoc, doc, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, doc, onSnapshot, getDoc, updateDoc } from 'firebase/firestore';
 // Geocode a location string to lat/lng using OpenStreetMap Nominatim (free, no API key)
 async function geocodeLocation(area, city) {
   const query = encodeURIComponent(`${area}, ${city}`);
@@ -12,7 +12,7 @@ async function geocodeLocation(area, city) {
   }
   return null;
 }
-
+ 
 // Calculate geographic centroid (true equidistant midpoint) from array of {lat, lng} points
 function calculateCentroid(points) {
   const valid = points.filter(p => p !== null);
@@ -20,7 +20,7 @@ function calculateCentroid(points) {
   const avg = valid.reduce((acc, p) => ({ lat: acc.lat + p.lat, lng: acc.lng + p.lng }), { lat: 0, lng: 0 });
   return { lat: avg.lat / valid.length, lng: avg.lng / valid.length };
 }
-
+ 
 // Haversine formula — straight-line distance between two lat/lng points in km
 function haversineDistance(p1, p2) {
   const R = 6371;
@@ -29,19 +29,47 @@ function haversineDistance(p1, p2) {
   const a = Math.sin(dLat/2)**2 + Math.cos(p1.lat * Math.PI/180) * Math.cos(p2.lat * Math.PI/180) * Math.sin(dLng/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
-
+ 
+// Reverse geocode centroid coords → neighbourhood name
+async function reverseGeocode(lat, lng) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`;
+    const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+    const data = await res.json();
+    return (
+      data.address?.suburb ||
+      data.address?.neighbourhood ||
+      data.address?.city_district ||
+      data.address?.town ||
+      data.display_name?.split(',')[0] ||
+      'Central Area'
+    );
+  } catch {
+    return 'Central Area';
+  }
+}
+ 
+// Extract restaurant option names from AI recommendations text
+function extractRestaurantNames(text) {
+  return (text || '')
+    .split('\n')
+    .filter(l => l.includes('🍽️'))
+    .map(l => l.replace('🍽️', '').replace(/^[#*\s]+/, '').trim())
+    .filter(Boolean);
+}
+ 
 export default function RestaurantPlanner() {
   const [mode, setMode] = useState('create'); // 'create', 'input', 'results'
   const [sessionId, setSessionId] = useState(null);
   const [session, setSession] = useState(null);
-
+ 
   // Creator (initiator) fields
   const [initiatorName, setInitiatorName] = useState('');
   const [city, setCity] = useState('Bangalore');
   const [numFriends, setNumFriends] = useState(3);
   const [meetupDate, setMeetupDate] = useState('');
   const [meetupTime, setMeetupTime] = useState('20:00');
-
+ 
   // Friend input fields
   const [friendName, setFriendName] = useState('');
   const [location, setLocation] = useState('');
@@ -51,7 +79,7 @@ export default function RestaurantPlanner() {
   const [arrivalTime, setArrivalTime] = useState('19:30');
   const [nearMetro, setNearMetro] = useState(false);
   const [otherPrefs, setOtherPrefs] = useState('');
-
+ 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -60,12 +88,16 @@ export default function RestaurantPlanner() {
   // RSVP state
   const [rsvpStatus, setRsvpStatus] = useState(null); // null, 'yes', 'no'
   const [hasRsvped, setHasRsvped] = useState(false);
-
+ 
+  // Poll/voting state
+  const [hasPollVoted, setHasPollVoted] = useState(false);
+  const [pollVote, setPollVote] = useState(null);
+ 
   // Load session from URL if present
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlSessionId = params.get('session');
-
+ 
     if (urlSessionId) {
       setSessionId(urlSessionId);
       setMode('input');
@@ -91,6 +123,15 @@ export default function RestaurantPlanner() {
               setRsvpStatus(userRsvp.status);
             }
           }
+ 
+          // Restore poll vote if user already voted
+          if (storedName && data.poll?.votes) {
+            const userPollVote = data.poll.votes.find(v => v.name.toLowerCase() === storedName.toLowerCase());
+            if (userPollVote) {
+              setHasPollVoted(true);
+              setPollVote(userPollVote.option);
+            }
+          }
           
           // If recommendations exist, show results
           if (data.synthesis) {
@@ -99,22 +140,42 @@ export default function RestaurantPlanner() {
           }
         }
       });
-
+ 
       return () => unsubscribe();
     }
   }, []);
+// Real-time listener for HOST — attaches when sessionId is set after createSession()
+useEffect(() => {
+  if (!sessionId) return;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('session')) return; // Already handled by the first useEffect
 
+  const sessionRef = doc(db, 'restaurant-sessions', sessionId);
+  const unsubscribe = onSnapshot(sessionRef, (doc) => {
+    if (doc.exists()) {
+      const data = doc.data();
+      setSession(data);
+      if (data.synthesis) {
+        setRecommendations(data.synthesis);
+        setMode('results');
+      }
+    }
+  });
+
+  return () => unsubscribe();
+}, [sessionId]);
+ 
   const submitRsvp = async (status) => {
     if (!friendName.trim()) {
       alert('Please enter your name first');
       return;
     }
-
+ 
     try {
       const sessionRef = doc(db, 'restaurant-sessions', sessionId);
-      const sessionSnap = await (await import('firebase/firestore')).getDoc(sessionRef);
+      const sessionSnap = await getDoc(sessionRef);
       const currentRsvps = sessionSnap.data()?.rsvps || [];
-
+ 
       // Check if this person already RSVP'd
       const existingRsvp = currentRsvps.find(r => r.name.toLowerCase() === friendName.toLowerCase());
       if (existingRsvp) {
@@ -123,17 +184,17 @@ export default function RestaurantPlanner() {
         setRsvpStatus(existingRsvp.status);
         return;
       }
-
+ 
       const rsvpData = {
         name: friendName,
         status: status, // 'yes' or 'no'
         timestamp: new Date().toISOString()
       };
-
-      await (await import('firebase/firestore')).updateDoc(sessionRef, {
+ 
+      await updateDoc(sessionRef, {
         rsvps: [...currentRsvps, rsvpData]
       });
-
+ 
       setRsvpStatus(status);
       setHasRsvped(true);
       
@@ -145,18 +206,18 @@ export default function RestaurantPlanner() {
       alert('Failed to submit RSVP. Please try again.');
     }
   };
-
+ 
   const createSession = async () => {
     if (!initiatorName.trim()) {
       alert('Please enter your name');
       return;
     }
-
+ 
     if (!meetupDate || !meetupTime) {
       alert('Please select a date and time for the meetup');
       return;
     }
-
+ 
     try {
       const sessionData = {
         type: 'restaurant',
@@ -174,12 +235,12 @@ export default function RestaurantPlanner() {
         }], // Host is auto-RSVP'd
         synthesis: ''
       };
-
+ 
       const docRef = await addDoc(collection(db, 'restaurant-sessions'), sessionData);
       const newSessionId = docRef.id;
       setSessionId(newSessionId);
       setSession(sessionData);
-
+ 
       // Set host identity BEFORE switching to input mode
       setFriendName(initiatorName);
       setHasRsvped(true);
@@ -187,7 +248,7 @@ export default function RestaurantPlanner() {
       
       // Save to localStorage
       localStorage.setItem(`restaurant_user_${newSessionId}`, initiatorName);
-
+ 
       const baseUrl = window.location.origin;
       const link = `${baseUrl}/restaurant?session=${newSessionId}`;
       setInviteLink(link);
@@ -199,18 +260,18 @@ export default function RestaurantPlanner() {
       alert('Failed to create session. Please try again.');
     }
   };
-
+ 
   const submitInput = async () => {
     if (!friendName.trim() || !location.trim()) {
       alert('Please enter your name and location');
       return;
     }
-
+ 
     setIsSubmitting(true);
-
+ 
     try {
       const sessionRef = doc(db, 'restaurant-sessions', sessionId);
-      const sessionSnap = await (await import('firebase/firestore')).getDoc(sessionRef);
+      const sessionSnap = await getDoc(sessionRef);
       const sessionData = sessionSnap.data();
       const currentSubmissions = sessionData?.submissions || [];
       const currentRsvps = sessionData?.rsvps || [];
@@ -228,7 +289,7 @@ Arrival time: ${arrivalTime}
 ${nearMetro ? 'Prefer: Near Metro station' : ''}
 ${otherPrefs ? `Other: ${otherPrefs}` : ''}
       `.trim();
-
+ 
       const submission = {
         collaboratorName: friendName,
         role: isHost ? 'Host' : 'Friend',
@@ -236,7 +297,7 @@ ${otherPrefs ? `Other: ${otherPrefs}` : ''}
         customPrompt: '',
         submittedAt: new Date().toISOString()
       };
-
+ 
       // Prepare update object
       const updateData = {
         submissions: [...currentSubmissions, submission]
@@ -258,9 +319,9 @@ ${otherPrefs ? `Other: ${otherPrefs}` : ''}
         // Save to localStorage
         localStorage.setItem(`restaurant_user_${sessionId}`, friendName);
       }
-
-      await (await import('firebase/firestore')).updateDoc(sessionRef, updateData);
-
+ 
+      await updateDoc(sessionRef, updateData);
+ 
       alert('Your preferences submitted! Share the link with other friends.');
       
       // Don't reset friendName - keep user identity!
@@ -280,15 +341,15 @@ ${otherPrefs ? `Other: ${otherPrefs}` : ''}
       setIsSubmitting(false);
     }
   };
-
+ 
   const generateRecommendations = async () => {
     if (!session?.submissions || session.submissions.length === 0) {
       alert('Waiting for friends to submit their preferences...');
       return;
     }
-
+ 
     setIsGenerating(true);
-
+ 
     try {
       // Geocode each person's location
       const geocoded = await Promise.all(
@@ -298,10 +359,15 @@ ${otherPrefs ? `Other: ${otherPrefs}` : ''}
           return { name: sub.collaboratorName, coords, analysis: sub.analysis };
         })
       );
-
+ 
       // Calculate true equidistant centroid
       const centroid = calculateCentroid(geocoded.map(g => g.coords));
-
+ 
+      // Reverse geocode the centroid to get a human-readable area name
+      const centroidAreaName = centroid
+        ? await reverseGeocode(centroid.lat, centroid.lng)
+        : null;
+ 
       // Build distance context for each person
       const distanceContext = geocoded.map(g => {
         if (g.coords && centroid) {
@@ -310,19 +376,19 @@ ${otherPrefs ? `Other: ${otherPrefs}` : ''}
         }
         return `${g.name}: location could not be geocoded`;
       }).join('\n');
-
+ 
       const centroidStr = centroid
-        ? `Geographic midpoint: ${centroid.lat.toFixed(4)}, ${centroid.lng.toFixed(4)} — recommend restaurants within 2km of this point`
+        ? `Geographic midpoint: ${centroid.lat.toFixed(4)}, ${centroid.lng.toFixed(4)} — nearest area: **${centroidAreaName}** — recommend restaurants within 2km of this point`
         : 'Geographic midpoint: could not be calculated — use general city centre';
-
+ 
       // Format all submissions for the prompt
       const friendsInputs = session.submissions.map(sub => 
         `${sub.collaboratorName}:\n${sub.analysis}`
       ).join('\n\n');
-
+ 
       const confirmedCount = session.rsvps?.filter(r => r.status === 'yes').length || session.submissions.length;
       const declinedCount = session.rsvps?.filter(r => r.status === 'no').length || 0;
-
+ 
       // Handle missing date/time for backward compatibility
       let meetupDateStr = 'Soon';
       if (session.meetupDate) {
@@ -337,60 +403,60 @@ ${otherPrefs ? `Other: ${otherPrefs}` : ''}
           meetupDateStr = session.meetupDate;
         }
       }
-
+ 
       const meetupTimeStr = session.meetupTime || '8:00 PM';
-
+ 
       const prompt = `You are helping a group of friends find the perfect restaurant to meet for dinner in ${session.city}.
-
+ 
 MEETING DETAILS:
 📅 Date: ${meetupDateStr}
 🕐 Time: ${meetupTimeStr}
 📍 City: ${session.city}
 👥 Confirmed Attendees: ${confirmedCount}
 ${declinedCount > 0 ? `❌ Unable to Attend: ${declinedCount}` : ''}
-
+ 
 GEOGRAPHIC DATA (scientifically calculated using Haversine formula):
 ${centroidStr}
-
+ 
 Individual distances to midpoint:
 ${distanceContext}
-
+ 
 FRIENDS' PREFERENCES:
 ${friendsInputs}
-
-TASK: Recommend 2-3 restaurants near the geographic midpoint above that work for EVERYONE. Consider:
+ 
+TASK: Recommend 2-3 restaurants near the geographic midpoint above that work for EVERYONE. The midpoint area is **${centroidAreaName || session.city}** — prioritise well-known restaurants in or immediately around that neighbourhood. Consider:
 1. Geographic convenience — prioritise locations close to the calculated midpoint coordinates
 2. Satisfy ALL dietary requirements (if anyone is veg-only, must have excellent veg options)
 3. Fit within everyone's budget constraints
 4. Match alcohol preferences (if anyone prefers no alcohol, choose places with good non-alcoholic options)
 5. Consider metro accessibility if mentioned
 6. Good ratings and ambiance for groups
-
+ 
 OUTPUT FORMAT (IMPORTANT - Use this exact structure):
 For each restaurant, provide:
-
+ 
 🍽️ [RESTAURANT NAME], [AREA]
 ⭐ [One-line why it's perfect for this group]
-
+ 
 📍 Distances:
 • [Friend 1 name]: [Distance] km ([Time] min)
 • [Friend 2 name]: [Distance] km ([Time] min)
 • [Friend 3 name]: [Distance] km ([Time] min)
-
+ 
 ✅ Why it works:
 • [Dietary fit]
 • [Alcohol/beverage options]
 • [Budget fit - ₹X per person average]
 • [Group-friendly features]
 • [Metro access if relevant]
-
+ 
 🗺️ Location: [Detailed area/landmark]
 ⏰ Best time: [Based on arrival times]
-
+ 
 ---
-
+ 
 Provide 2-3 options, with the BEST option first.`;
-
+ 
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/claude`, {
         method: 'POST',
         headers: {
@@ -401,15 +467,15 @@ Provide 2-3 options, with the BEST option first.`;
           maxTokens: 3000
         }),
       });
-
+ 
       if (!response.ok) {
         throw new Error(`Backend error: ${response.status}`);
       }
-
+ 
       const data = await response.json();
       
       console.log('Backend response:', data); // DEBUG: See what we got
-
+ 
       // Handle different response formats
       let recommendationText;
       
@@ -429,13 +495,13 @@ Provide 2-3 options, with the BEST option first.`;
         console.error('Unexpected response format:', data);
         throw new Error('Unexpected response format from backend');
       }
-
+ 
       if (recommendationText) {
         setRecommendations(recommendationText);
         
         // Save to Firebase
         const sessionRef = doc(db, 'restaurant-sessions', sessionId);
-        await (await import('firebase/firestore')).updateDoc(sessionRef, {
+        await updateDoc(sessionRef, {
           synthesis: recommendationText,
           synthesisGeneratedAt: new Date().toISOString()
         });
@@ -451,12 +517,64 @@ Provide 2-3 options, with the BEST option first.`;
       setIsGenerating(false);
     }
   };
-
+ 
+  // Create a Firebase poll and share the session link via WhatsApp
+  const initiatePoll = async () => {
+    const options = extractRestaurantNames(recommendations);
+    const sessionUrl = window.location.href;
+ 
+    try {
+      const sessionRef = doc(db, 'restaurant-sessions', sessionId);
+      if (options.length > 0) {
+        await updateDoc(sessionRef, {
+          poll: { options, votes: [] }
+        });
+      }
+      const pollText = options.length > 0
+        ? `🍽️ *Vote: Where should we eat?*\n\n${session?.initiatorName} has shortlisted restaurants for ${session?.meetupDate || 'our meetup'}.\n\nTap to see the options and cast your vote 👇\n${sessionUrl}`
+        : `🍽️ *Restaurant shortlist is ready!*\n\nCheck out where we could eat and share your thoughts 👇\n${sessionUrl}`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(pollText)}`, '_blank');
+    } catch (error) {
+      console.error('Error creating poll:', error);
+      // Fallback: just open WA with link
+      window.open(`https://wa.me/?text=${encodeURIComponent(`🍽️ Vote for our restaurant!\n${window.location.href}`)}`, '_blank');
+    }
+  };
+ 
+  // Submit a poll vote
+  const submitPollVote = async (option) => {
+    if (!friendName.trim()) {
+      alert('Please enter your name to vote');
+      return;
+    }
+    try {
+      const sessionRef = doc(db, 'restaurant-sessions', sessionId);
+      const snap = await getDoc(sessionRef);
+      const currentPoll = snap.data()?.poll || { options: [], votes: [] };
+      const existing = currentPoll.votes.find(v => v.name.toLowerCase() === friendName.toLowerCase());
+      if (existing) {
+        setHasPollVoted(true);
+        setPollVote(existing.option);
+        return;
+      }
+      const newVotes = [...currentPoll.votes, { name: friendName, option, timestamp: new Date().toISOString() }];
+      await updateDoc(sessionRef, { poll: { ...currentPoll, votes: newVotes } });
+      setHasPollVoted(true);
+      setPollVote(option);
+      // Persist vote identity
+      if (!localStorage.getItem(`restaurant_user_${sessionId}`)) {
+        localStorage.setItem(`restaurant_user_${sessionId}`, friendName);
+      }
+    } catch (error) {
+      console.error('Error submitting vote:', error);
+    }
+  };
+ 
   const copyLink = () => {
     navigator.clipboard.writeText(inviteLink);
     alert('Link copied! Share it with your friends on WhatsApp.');
   };
-
+ 
   const resetSession = () => {
     setMode('create');
     setSessionId(null);
@@ -465,7 +583,7 @@ Provide 2-3 options, with the BEST option first.`;
     setRecommendations(null);
     window.history.pushState({}, '', '/restaurant');
   };
-
+ 
   // CREATE MODE - Initiator creates the plan
   if (mode === 'create') {
     return (
@@ -479,7 +597,7 @@ Provide 2-3 options, with the BEST option first.`;
               Find the perfect restaurant for your group - no endless debates!
             </p>
           </div>
-
+ 
           <div className="bg-white rounded-2xl shadow-lg p-8">
             <div className="space-y-6">
               <div>
@@ -494,7 +612,7 @@ Provide 2-3 options, with the BEST option first.`;
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 />
               </div>
-
+ 
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Which City?
@@ -512,7 +630,7 @@ Provide 2-3 options, with the BEST option first.`;
                   <option value="Pune">Pune</option>
                 </select>
               </div>
-
+ 
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   📅 When are you meeting?
@@ -525,7 +643,7 @@ Provide 2-3 options, with the BEST option first.`;
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 />
               </div>
-
+ 
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   🕐 What time?
@@ -537,7 +655,7 @@ Provide 2-3 options, with the BEST option first.`;
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 />
               </div>
-
+ 
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   How many friends (including you)?
@@ -552,7 +670,7 @@ Provide 2-3 options, with the BEST option first.`;
                   ))}
                 </select>
               </div>
-
+ 
               <button
                 onClick={createSession}
                 className="w-full py-4 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-lg font-bold text-lg hover:from-orange-700 hover:to-red-700 transition-colors"
@@ -561,7 +679,7 @@ Provide 2-3 options, with the BEST option first.`;
               </button>
             </div>
           </div>
-
+ 
           <div className="mt-6 text-center text-sm text-gray-600">
             <p>✨ Powered by AI • Share link with friends • Get instant recommendations</p>
           </div>
@@ -569,7 +687,7 @@ Provide 2-3 options, with the BEST option first.`;
       </div>
     );
   }
-
+ 
   // INPUT MODE - Friend submits preferences
   if (mode === 'input') {
     // RSVP SCREEN - Show only for friends (not for host who just created session)
@@ -585,7 +703,7 @@ Provide 2-3 options, with the BEST option first.`;
                 🍽️ {session.initiatorName}'s Dinner Plan
               </h1>
             </div>
-
+ 
             <div className="bg-white rounded-2xl shadow-lg p-8">
               <div className="text-center mb-8">
                 <div className="text-6xl mb-4">🎉</div>
@@ -611,7 +729,7 @@ Provide 2-3 options, with the BEST option first.`;
                   </p>
                 </div>
               </div>
-
+ 
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Your Name
@@ -624,7 +742,7 @@ Provide 2-3 options, with the BEST option first.`;
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 />
               </div>
-
+ 
               <div className="border-t pt-6">
                 <p className="text-center text-lg font-semibold text-gray-900 mb-6">
                   Will you join us?
@@ -645,7 +763,7 @@ Provide 2-3 options, with the BEST option first.`;
                 </div>
               </div>
             </div>
-
+ 
             <div className="mt-6 text-center text-sm text-gray-600">
               <p>✨ RSVP to help us plan better</p>
             </div>
@@ -653,7 +771,7 @@ Provide 2-3 options, with the BEST option first.`;
         </div>
       );
     }
-
+ 
     // "CAN'T MAKE IT" MESSAGE - Show if user declined
     if (hasRsvped && rsvpStatus === 'no') {
       return (
@@ -681,7 +799,7 @@ Provide 2-3 options, with the BEST option first.`;
         </div>
       );
     }
-
+ 
     // PREFERENCES FORM - Show if user confirmed attendance
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-6">
@@ -699,7 +817,7 @@ Provide 2-3 options, with the BEST option first.`;
               </p>
             )}
           </div>
-
+ 
           {inviteLink && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
               <p className="text-sm font-semibold text-blue-900 mb-2">
@@ -721,7 +839,7 @@ Provide 2-3 options, with the BEST option first.`;
               </div>
             </div>
           )}
-
+ 
           {/* RSVP STATUS DASHBOARD - Only for host */}
           {session && session.initiatorName && friendName === session.initiatorName && session.rsvps && (
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
@@ -735,7 +853,7 @@ Provide 2-3 options, with the BEST option first.`;
                 const declined = rsvps.filter(r => r.status === 'no');
                 const totalInvited = session.numFriends;
                 const pending = totalInvited - rsvps.length;
-
+ 
                 return (
                   <div className="space-y-3 text-xs">
                     {confirmed.length > 0 && (
@@ -750,7 +868,7 @@ Provide 2-3 options, with the BEST option first.`;
                         </div>
                       </div>
                     )}
-
+ 
                     {declined.length > 0 && (
                       <div>
                         <p className="font-semibold text-red-900 mb-1">
@@ -763,7 +881,7 @@ Provide 2-3 options, with the BEST option first.`;
                         </div>
                       </div>
                     )}
-
+ 
                     {pending > 0 && (
                       <div>
                         <p className="font-semibold text-gray-700 mb-1">
@@ -779,7 +897,7 @@ Provide 2-3 options, with the BEST option first.`;
               })()}
             </div>
           )}
-
+ 
           {session && session.submissions && session.submissions.length > 0 && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
               <p className="text-sm font-semibold text-green-900 mb-2">
@@ -844,7 +962,7 @@ Provide 2-3 options, with the BEST option first.`;
               )}
             </div>
           )}
-
+ 
           {/* Only show preference form if user hasn't submitted yet */}
           {!session?.submissions?.some(sub => sub.collaboratorName.toLowerCase() === friendName.toLowerCase()) && (
           <div className="bg-white rounded-2xl shadow-lg p-8">
@@ -861,7 +979,7 @@ Provide 2-3 options, with the BEST option first.`;
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 />
               </div>
-
+ 
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   📍 Where are you coming from?
@@ -877,7 +995,7 @@ Provide 2-3 options, with the BEST option first.`;
                   Enter your area, landmark, or neighborhood
                 </p>
               </div>
-
+ 
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-3">
                   🍽️ Food Preferences
@@ -912,7 +1030,7 @@ Provide 2-3 options, with the BEST option first.`;
                   </label>
                 </div>
               </div>
-
+ 
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   💰 Budget per person
@@ -944,7 +1062,7 @@ Provide 2-3 options, with the BEST option first.`;
                   ))}
                 </div>
               </div>
-
+ 
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   ⏰ What time can you reach?
@@ -956,7 +1074,7 @@ Provide 2-3 options, with the BEST option first.`;
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 />
               </div>
-
+ 
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   📝 Any other requirements? (Optional)
@@ -969,7 +1087,7 @@ Provide 2-3 options, with the BEST option first.`;
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
                 />
               </div>
-
+ 
               <button
                 onClick={submitInput}
                 disabled={isSubmitting}
@@ -980,7 +1098,7 @@ Provide 2-3 options, with the BEST option first.`;
             </div>
           </div>
           )}
-
+ 
           {/* Show confirmation if user already submitted */}
           {session?.submissions?.some(sub => sub.collaboratorName.toLowerCase() === friendName.toLowerCase()) && (
             <div className="bg-green-50 border-2 border-green-300 rounded-2xl shadow-lg p-8 text-center">
@@ -998,7 +1116,7 @@ Provide 2-3 options, with the BEST option first.`;
               )}
             </div>
           )}
-
+ 
           <div className="mt-6 text-center">
             <button
               onClick={resetSession}
@@ -1011,7 +1129,7 @@ Provide 2-3 options, with the BEST option first.`;
       </div>
     );
   }
-
+ 
   // RESULTS MODE - Show recommendations
   if (mode === 'results') {
     return (
@@ -1025,7 +1143,24 @@ Provide 2-3 options, with the BEST option first.`;
               Based on everyone's preferences in {session?.city}
             </p>
           </div>
-
+ 
+          {/* Name prompt for users who arrive directly on results page (e.g. from WhatsApp) */}
+          {!friendName && session?.poll?.options?.length > 0 && (
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6 flex gap-3 items-center">
+              <span className="text-2xl">👋</span>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-orange-900 mb-1">What's your name? (to vote)</p>
+                <input
+                  type="text"
+                  value={friendName}
+                  onChange={(e) => setFriendName(e.target.value)}
+                  placeholder="e.g., Raj"
+                  className="w-full px-3 py-2 border border-orange-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          )}
+ 
           <div className="bg-white rounded-2xl shadow-lg p-8 mb-6">
             <div className="prose max-w-none">
               <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
@@ -1033,7 +1168,7 @@ Provide 2-3 options, with the BEST option first.`;
               </div>
             </div>
           </div>
-
+ 
           <div className="flex gap-4 justify-center flex-wrap">
             <button
               onClick={resetSession}
@@ -1048,24 +1183,78 @@ Provide 2-3 options, with the BEST option first.`;
               📲 Share Results
             </button>
             <button
-              onClick={() => {
-                // Extract restaurant names from recommendations for the poll
-                const lines = (recommendations || '').split('\n');
-                const restaurants = lines
-                  .filter(l => l.includes('🍽️'))
-                  .map((l, i) => `${i + 1}️⃣ ${l.replace('🍽️', '').trim()}`);
-                const pollText = restaurants.length > 0
-                  ? `🍽️ *Restaurant Vote!*\n\nWhere shall we meet on ${session?.meetupDate || 'our meetup'}?\n\n${restaurants.join('\n')}\n\nReply with your number 👆`
-                  : `🍽️ Check out our restaurant shortlist!\n\n${(recommendations || '').slice(0, 300)}...\n\nVote for your favourite!`;
-                const waUrl = `https://wa.me/?text=${encodeURIComponent(pollText)}`;
-                window.open(waUrl, '_blank');
-              }}
+              onClick={initiatePoll}
               className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold"
             >
               💬 WhatsApp Poll
             </button>
           </div>
-
+ 
+          {/* Live Poll / Voting UI */}
+          {session?.poll?.options?.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-lg p-8 mb-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-1">🗳️ Vote for Your Favourite</h2>
+              <p className="text-sm text-gray-500 mb-5">
+                {session.poll.votes?.length || 0} vote{(session.poll.votes?.length || 0) !== 1 ? 's' : ''} so far
+              </p>
+              <div className="space-y-3">
+                {session.poll.options.map((option, idx) => {
+                  const voteCount = (session.poll.votes || []).filter(v => v.option === option).length;
+                  const totalVotes = (session.poll.votes || []).length;
+                  const pct = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+                  const isMyVote = pollVote === option;
+                  const showResults = hasPollVoted || friendName === session.initiatorName;
+                  return (
+                    <div key={idx}>
+                      <button
+                        onClick={() => !hasPollVoted && submitPollVote(option)}
+                        disabled={hasPollVoted}
+                        className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all ${
+                          isMyVote
+                            ? 'border-orange-500 bg-orange-50'
+                            : hasPollVoted
+                              ? 'border-gray-200 bg-gray-50 cursor-default'
+                              : 'border-gray-200 hover:border-orange-400 hover:bg-orange-50 cursor-pointer'
+                        }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className={`font-medium ${isMyVote ? 'text-orange-900' : 'text-gray-800'}`}>
+                            {isMyVote ? '✅ ' : ''}{option}
+                          </span>
+                          {showResults && (
+                            <span className="text-sm text-gray-500 ml-3 whitespace-nowrap">
+                              {voteCount} vote{voteCount !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
+                        {showResults && totalVotes > 0 && (
+                          <div className="mt-2 bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-orange-500 h-2 rounded-full transition-all"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        )}
+                        {showResults && totalVotes > 0 && (
+                          <p className="text-xs text-gray-400 mt-1">{pct}%</p>
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              {!hasPollVoted && friendName !== session.initiatorName && (
+                <p className="text-sm text-gray-500 mt-4 text-center">Tap a restaurant to cast your vote!</p>
+              )}
+              {hasPollVoted && (
+                <p className="text-sm text-green-600 mt-4 text-center font-semibold">✅ Vote recorded — results update live!</p>
+              )}
+              {friendName === session.initiatorName && !hasPollVoted && (
+                <p className="text-sm text-gray-400 mt-4 text-center">You created this poll. Results shown in real-time.</p>
+              )}
+            </div>
+          )}
+ 
           {session && session.submissions && (
             <div className="mt-6 bg-white rounded-lg p-4">
               <p className="text-sm font-semibold text-gray-700 mb-2">
@@ -1087,6 +1276,6 @@ Provide 2-3 options, with the BEST option first.`;
       </div>
     );
   }
-
+ 
   return null;
 }
