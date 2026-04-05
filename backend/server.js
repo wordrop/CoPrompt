@@ -89,6 +89,12 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+// Keep Railway warm — prevent cold start timeouts
+setInterval(() => {
+  fetch('https://coprompt-production.up.railway.app/health')
+    .catch(() => {});
+}, 14 * 60 * 1000);
+
 // Helper function to fetch and extract text from a URL
 async function fetchUrlContent(url) {
   try {
