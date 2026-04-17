@@ -823,7 +823,7 @@ app.post('/api/claude', async (req, res) => {
     console.log('📡 Calling Claude API...');
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 8000,
       system: systemPrompt || 'You are a helpful AI assistant.',
       messages: [{ role: 'user', content: prompt }],
@@ -902,7 +902,7 @@ app.post('/api/generate-analysis', rateLimitMiddleware, async (req, res) => {
     const systemPrompt = getSystemPromptForAnalysis(sessionType);
 
 const message = await anthropic.messages.create({
-  model: 'claude-sonnet-4-20250514',
+  model: 'claude-sonnet-4-6',
   max_tokens: 8000,
   system: systemPrompt,
   messages: [{ role: 'user', content: fullPrompt }],
@@ -1050,7 +1050,7 @@ ${customPrompt ? `\nSpecific focus: ${customPrompt}` : ''}`;
     }
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 8000,
       system: systemPrompt,
       messages: [{ role: 'user', content: finalPrompt }],
@@ -1312,7 +1312,7 @@ CRITICAL RULES:
 - Be detailed and actionable`;
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 8000,
       system: 'You are an expert at synthesizing multiple perspectives into coherent insights.',
       messages: [{ role: 'user', content: synthesisPrompt }],
@@ -1408,7 +1408,7 @@ Requirements:
 Generate the REVISED synthesis now:`;
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 8000,
       system: 'You are an expert at synthesizing multiple perspectives into coherent insights.',
       messages: [{ role: 'user', content: revisionPrompt }],
@@ -1491,6 +1491,214 @@ app.post('/api/contact', async (req, res) => {
   } catch (err) {
     console.error('❌ Email send error:', err);
     res.status(500).json({ success: false, error: 'Failed to send email' });
+  }
+});
+// ProcessIQ — Extract endpoint
+app.post('/processiq/extract', async (req, res) => {
+  const { text, tier } = req.body;
+
+  if (!text || text.trim().length < 20) {
+    return res.status(400).json({ error: 'Process text too short' });
+  }
+
+  const prompt = `You are a Process Intelligence agent trained in Lean Six Sigma and business process management.
+
+Your job is EXTRACTION ONLY. Do not classify steps as value-add or waste yet. Do not recommend improvements. Just model the process faithfully.
+
+RULES:
+- Every step becomes a node
+- Every actor becomes an actor object
+- Every system or tool becomes a system object
+- Every conditional path becomes an edge with a condition
+- If a step loops back to an earlier step, mark that edge is_rework_loop: true
+- If something is ambiguous, add it to ambiguities and flag the node with needs_clarification: true
+- If a step involves checking, approving, reviewing, or validating — mark type as "control"
+
+Return only valid JSON, no markdown, no explanation, matching this structure exactly:
+
+{
+  "meta": {
+    "name": "",
+    "domain": "",
+    "process_type": "",
+    "parsed_confidence": 0.0,
+    "ambiguities": [],
+    "source_summary": ""
+  },
+  "actors": [
+    { "actor_id": "", "name": "", "type": "", "department": "" }
+  ],
+  "systems": [
+    { "system_id": "", "name": "", "vendor": "", "type": "", "step_references": [] }
+  ],
+  "nodes": [
+    {
+      "node_id": "",
+      "sequence": 0,
+      "name": "",
+      "description": "",
+      "type": "",
+      "actor_id": "",
+      "system_ids": [],
+      "time": { "unit": "minutes", "estimated_duration": null, "estimated_wait_before": null, "confidence": "assumed" },
+      "lean": { "classification": "unclassified", "waste_tags": [], "classification_confidence": null, "classification_rationale": "" },
+      "control": null,
+      "flags": [],
+      "needs_clarification": false,
+      "clarification_question": "",
+      "source": { "raw_text": "" }
+    }
+  ],
+  "edges": [
+    { "edge_id": "", "from": "", "to": "", "condition": "", "label": "", "is_rework_loop": false }
+  ],
+  "loops": [],
+  "swimlanes": []
+}
+
+For any control node, populate the control object:
+{
+  "control_id": "",
+  "description": "",
+  "agent_assessment": {
+    "probable_type": "",
+    "risk_mitigated": "",
+    "regulatory_trigger_detected": false,
+    "regulatory_reference": "",
+    "confidence": 0.0,
+    "automation_potential": "full | partial | low",
+    "automation_rationale": "",
+    "human_gate_questions": []
+  },
+  "validated": false,
+  "validated_type": null,
+  "validated_by": null,
+  "validated_at": null,
+  "human_notes": null
+}
+
+Process document:
+${text}`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+    const raw = data.content[0].text;
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const graph = JSON.parse(clean);
+
+    res.json({ graph, tier });
+
+  } catch (err) {
+    console.error('ProcessIQ extract error:', err);
+    res.status(500).json({ error: 'Extraction failed', detail: err.message });
+  }
+});
+// ProcessIQ — Classify endpoint
+app.post('/processiq/classify', async (req, res) => {
+  const { graph } = req.body;
+
+  if (!graph || !graph.nodes) {
+    return res.status(400).json({ error: 'No graph provided' });
+  }
+
+  const prompt = `You are a Lean Six Sigma Black Belt with deep experience in service industry and financial services process improvement.
+
+You will receive a canonical process graph as JSON.
+Your job is to classify every node using Lean principles.
+
+CLASSIFICATION RULES:
+
+VA — Value Add
+The step directly transforms something the customer cares about and would pay for. Apply this sparingly. If in doubt, it is probably BVA not VA.
+
+BVA — Business Value Add
+Necessary for the business to operate, manage risk, or meet obligations but the customer does not directly experience its value.
+
+NVA — Non Value Add
+Pure waste. Could be removed today without affecting the customer or any genuine risk.
+Examples: unnecessary handoffs, waiting, manual re-entry, duplicate checks.
+
+NVA-R — Non Value Add but Regulatory
+Looks like waste but cannot be removed because a regulation or hard policy mandates it.
+Only mark this when there is actual evidence of regulatory language — do not assume NVA-R just because it is a control.
+
+WASTE TAGGING — apply all that fit from DOWNTIME:
+D — Defects
+O — Overproduction
+W — Waiting
+N — Non-utilised talent
+T — Transportation
+I — Inventory
+M — Motion
+E — Extra processing
+
+CONFIDENCE SCORING:
+Score 0.0 to 1.0. Below 0.70 means human validation needed.
+
+CRITICAL RULES:
+- Do NOT change node_ids, names, or any existing structure
+- Only populate or update these fields per node:
+  lean.classification
+  lean.waste_tags
+  lean.classification_confidence
+  lean.classification_rationale
+  flags (append only)
+- Return the complete nodes array with lean fields populated
+- Return only valid JSON — no markdown, no explanation, no preamble
+
+Return this exact structure:
+{
+  "nodes": [ ...complete nodes array with lean fields populated... ]
+}
+
+Here is the canonical process graph:
+${JSON.stringify(graph)}`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+    const raw = data.content[0].text;
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+
+    // Merge classified nodes back into the original graph
+    const updatedGraph = {
+      ...graph,
+      nodes: result.nodes
+    };
+
+    res.json({ graph: updatedGraph });
+
+  } catch (err) {
+    console.error('ProcessIQ classify error:', err);
+    res.status(500).json({ error: 'Classification failed', detail: err.message });
   }
 });
 
