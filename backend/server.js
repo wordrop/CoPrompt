@@ -12,6 +12,8 @@ const pdfParse = require('pdf-parse');
 import mammoth from 'mammoth';
 import XLSX from 'xlsx';
 import fetch from 'node-fetch';
+import Razorpay from 'razorpay';
+import crypto from 'crypto';
 dotenv.config();
 
 const firebaseConfig = {
@@ -40,9 +42,19 @@ console.log('================================');
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
-
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+ 
+// Session pack pricing — one-time top-up. Amount in paise (INR smallest unit).
+const SESSION_PACK_PRICE_PAISE = parseInt(process.env.RAZORPAY_PACK_PRICE_PAISE || '99900', 10); // ₹999 default
+const SESSION_PACK_CREDITS = parseInt(process.env.RAZORPAY_PACK_CREDITS || '10', 10); // 10 sessions default
+ 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => { req.rawBody = buf; } // needed for Razorpay webhook signature check
+}));
 
 // IP-based rate limiting — bot protection
 const ipRequestCounts = new Map();
@@ -873,6 +885,120 @@ app.post('/api/save-session', async (req, res) => {
   }
 });
 
+// ---- Payments (Razorpay) ----
+ 
+// Create a one-time order for a session pack. Frontend opens Razorpay Checkout with this order.
+app.post('/api/create-order', async (req, res) => {
+  try {
+    const { browserId } = req.body;
+ 
+    const order = await razorpay.orders.create({
+      amount: SESSION_PACK_PRICE_PAISE,
+      currency: 'INR',
+      receipt: `pack_${Date.now()}`,
+      notes: { browserId: browserId || 'unknown', credits: SESSION_PACK_CREDITS }
+    });
+ 
+    console.log('💳 Razorpay order created:', order.id);
+ 
+    res.json({
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      credits: SESSION_PACK_CREDITS,
+      keyId: process.env.RAZORPAY_KEY_ID // safe to expose — this is the public key
+    });
+  } catch (error) {
+    console.error('❌ Error creating Razorpay order:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+ 
+// Verify a completed checkout (called by the frontend from Razorpay Checkout's success handler).
+// This is what actually grants credits — the webhook below is an audit trail, not the trigger.
+app.post('/api/verify-payment', async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, browserId } = req.body;
+ 
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ verified: false, error: 'Missing payment fields' });
+    }
+ 
+    const expectedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest('hex');
+ 
+    const verified = expectedSignature === razorpay_signature;
+ 
+    if (!verified) {
+      console.error('❌ Razorpay signature mismatch for payment:', razorpay_payment_id);
+      return res.status(400).json({ verified: false, error: 'Signature verification failed' });
+    }
+ 
+    // Record the payment in Firestore (idempotent — keyed by payment ID)
+    await setDoc(doc(db, 'payments', razorpay_payment_id), {
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      browserId: browserId || 'unknown',
+      credits: SESSION_PACK_CREDITS,
+      amount: SESSION_PACK_PRICE_PAISE,
+      currency: 'INR',
+      status: 'verified',
+      verifiedAt: new Date().toISOString(),
+      source: 'checkout_handler'
+    }, { merge: true });
+ 
+    console.log('✅ Payment verified and recorded:', razorpay_payment_id);
+ 
+    res.json({ verified: true, credits: SESSION_PACK_CREDITS, paymentId: razorpay_payment_id });
+  } catch (error) {
+    console.error('❌ Error verifying payment:', error);
+    res.status(500).json({ verified: false, error: error.message });
+  }
+});
+ 
+// Razorpay webhook — server-side audit trail / fallback record of payment.captured events.
+// Configure this URL in the Razorpay Dashboard under Webhooks, with RAZORPAY_WEBHOOK_SECRET.
+app.post('/api/razorpay-webhook', async (req, res) => {
+  try {
+    const signature = req.headers['x-razorpay-signature'];
+    const expectedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET)
+      .update(req.rawBody)
+      .digest('hex');
+ 
+    if (signature !== expectedSignature) {
+      console.error('❌ Razorpay webhook signature mismatch');
+      return res.status(400).json({ error: 'Invalid signature' });
+    }
+ 
+    const event = req.body;
+    console.log('📩 Razorpay webhook received:', event.event);
+ 
+    if (event.event === 'payment.captured') {
+      const payment = event.payload.payment.entity;
+ 
+      await setDoc(doc(db, 'payments', payment.id), {
+        orderId: payment.order_id,
+        paymentId: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        status: 'captured',
+        capturedAt: new Date().toISOString(),
+        source: 'webhook'
+      }, { merge: true });
+ 
+      console.log('✅ Webhook: payment recorded as captured:', payment.id);
+    }
+ 
+    res.json({ received: true });
+  } catch (error) {
+    console.error('❌ Error processing Razorpay webhook:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/generate-analysis', rateLimitMiddleware, async (req, res) => {
   try {
     const { prompt, topic, uploadedDocuments, urlInputs, sessionType, orgContext } = req.body;
@@ -1590,7 +1716,7 @@ ${text}`;
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -1678,7 +1804,7 @@ ${JSON.stringify(graph)}`;
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -1699,6 +1825,141 @@ ${JSON.stringify(graph)}`;
   } catch (err) {
     console.error('ProcessIQ classify error:', err);
     res.status(500).json({ error: 'Classification failed', detail: err.message });
+  }
+});
+
+// ProcessIQ — Assess Controls endpoint (Prompt 4)
+app.post('/processiq/assess-controls', async (req, res) => {
+  const { graph } = req.body;
+
+  if (!graph || !graph.nodes) {
+    return res.status(400).json({ error: 'No graph provided' });
+  }
+
+  const controlNodes = graph.nodes.filter(n => n.type === 'control');
+
+  if (controlNodes.length === 0) {
+    return res.json({ graph, controls_assessed: 0 });
+  }
+
+  const prompt = `You are a Lean Six Sigma Black Belt with 30 years of banking, risk and financial crimes compliance experience. Controls are the hardest part of any process improvement — removing the wrong one creates regulatory exposure, keeping the wrong one wastes money on theatre.
+
+You will receive a list of control nodes extracted from a process. For EACH control node, produce an agent_assessment. You are not making the final call — a human SME validates every control you assess. Your job is to give them a sharp, evidence-based starting point, not a rubber stamp.
+
+ASSESSMENT DIMENSIONS — cover all five for every control:
+
+1. EXISTENCE RATIONALE — why does this control exist at all? What specifically breaks if it's removed?
+2. REGULATORY VS HABITUAL — is there actual evidence of a regulation, policy, or hard external mandate, or is this a control nobody has questioned in years? Only mark regulatory_trigger_detected true when there is real evidentiary language in the process description — do not assume regulatory just because it looks like a control.
+3. AUTOMATION POTENTIAL — could a rules engine or system check replace the human step? full | partial | low, with rationale.
+4. EFFECTIVENESS / LAST CATCH — is there any evidence in the process text of this control catching something, or does it look like it runs but nothing is ever found?
+5. THRESHOLD CALIBRATION — if the control involves a numeric threshold (dollar amount, time limit, count), is there any evidence the threshold itself has ever been reviewed, or does it look like a legacy number nobody has revisited? If there is no threshold involved, note that explicitly rather than skipping the question.
+
+For each control, populate:
+{
+  "control_id": "",
+  "probable_type": "REG-HARD | LEGACY | RISK-JUDGMENT",
+  "risk_mitigated": "",
+  "regulatory_trigger_detected": false,
+  "regulatory_reference": "",
+  "confidence": 0.0,
+  "automation_potential": "full | partial | low",
+  "automation_rationale": "",
+  "human_gate_questions": [
+    { "category": "existence", "question": "" },
+    { "category": "regulatory_vs_habitual", "question": "" },
+    { "category": "automation", "question": "" },
+    { "category": "effectiveness", "question": "" },
+    { "category": "threshold_calibration", "question": "" }
+  ]
+}
+
+probable_type meanings:
+- REG-HARD: real regulatory or hard policy evidence found
+- LEGACY: looks habitual, no regulatory evidence, likely never questioned
+- RISK-JUDGMENT: genuine risk-management value but not regulatory — a judgment call, not a mandate
+
+CRITICAL RULES:
+- One assessment object per control node, matched by control_id
+- confidence below 0.70 means the human SME should look closely — do not inflate confidence to avoid this
+- Return only valid JSON, no markdown, no explanation, no preamble
+
+Return this exact structure:
+{
+  "assessments": [ ...one object per control, per the schema above... ]
+}
+
+Control nodes to assess:
+${JSON.stringify(controlNodes.map(n => ({
+  control_id: n.control?.control_id || n.node_id,
+  node_id: n.node_id,
+  name: n.name,
+  description: n.description,
+  actor_id: n.actor_id,
+  source_text: n.source?.raw_text || ''
+})))}`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+    const raw = data.content[0].text;
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+
+    // Merge assessments back into their matching control nodes by control_id
+    const assessmentMap = {};
+    result.assessments.forEach(a => { assessmentMap[a.control_id] = a; });
+
+    const updatedNodes = graph.nodes.map(node => {
+      if (node.type !== 'control') return node;
+      const cid = node.control?.control_id || node.node_id;
+      const assessment = assessmentMap[cid];
+      if (!assessment) return node;
+
+      return {
+        ...node,
+        control: {
+          ...(node.control || {}),
+          control_id: cid,
+          description: node.control?.description || node.description,
+          agent_assessment: {
+            probable_type: assessment.probable_type,
+            risk_mitigated: assessment.risk_mitigated,
+            regulatory_trigger_detected: assessment.regulatory_trigger_detected,
+            regulatory_reference: assessment.regulatory_reference,
+            confidence: assessment.confidence,
+            automation_potential: assessment.automation_potential,
+            automation_rationale: assessment.automation_rationale,
+            human_gate_questions: assessment.human_gate_questions
+          },
+          validated: false,
+          validated_type: null,
+          validated_by: null,
+          validated_at: null,
+          human_notes: null
+        }
+      };
+    });
+
+    const updatedGraph = { ...graph, nodes: updatedNodes };
+
+    res.json({ graph: updatedGraph, controls_assessed: result.assessments.length });
+
+  } catch (err) {
+    console.error('ProcessIQ assess-controls error:', err);
+    res.status(500).json({ error: 'Control assessment failed', detail: err.message });
   }
 });
 

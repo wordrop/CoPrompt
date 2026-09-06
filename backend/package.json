@@ -19,6 +19,7 @@
     "node-fetch": "^3.3.2",
     "nodemailer": "^8.0.1",
     "pdf-parse": "^1.1.1",
+    "razorpay": "^2.9.8",
     "resend": "^6.9.2",
     "word-extractor": "^1.0.4",
     "xlsx": "^0.18.5"

@@ -10,7 +10,7 @@ import RestaurantPlanner from './RestaurantPlanner';
 import Contact from './Contact';
 import Privacy from './Privacy';
 import SessionDashboard from './SessionDashboard';
-import { saveSession, checkRateLimit, trackEvent, getAllSessions, checkSessionGate, saveSignupData, getSignupData, saveDraft, getDraft, clearDraft } from './sessionStorage';
+import { saveSession, checkRateLimit, trackEvent, getAllSessions, checkSessionGate, saveSignupData, getSignupData, saveDraft, getDraft, clearDraft, addPaidCredits, consumePaidCredit } from './sessionStorage';
 
 function renderSectionContent(text) {
   if (!text) return null;
@@ -141,6 +141,8 @@ Focus particularly on win probability, our genuine differentiators, and the risk
   const [signupEmail, setSignupEmail] = useState('');
   const [signupError, setSignupError] = useState('');
   const [pendingCreate, setPendingCreate] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
 
   const roleOptions = [
     'Project Lead',
@@ -425,6 +427,92 @@ const handleFileUpload = async (e) => {
     }
   };
 
+// Dynamically load Razorpay's Checkout script (only once)
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (document.getElementById('razorpay-checkout-script')) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.id = 'razorpay-checkout-script';
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  // Opens Razorpay Checkout for a one-time session pack. On verified success,
+  // adds credits locally and retries session creation.
+  const handlePayment = async () => {
+    setPaymentError('');
+    setPaymentLoading(true);
+    try {
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        throw new Error('Could not load payment gateway. Check your connection and try again.');
+      }
+
+      const browserId = localStorage.getItem('coprompt_browser_id') || 'unknown';
+
+      const orderRes = await fetch(`${import.meta.env.VITE_API_URL}/api/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ browserId })
+      });
+      const order = await orderRes.json();
+      if (order.error) throw new Error(order.error);
+
+      const options = {
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency,
+        name: 'CoPrompt',
+        description: `${order.credits} additional sessions`,
+        order_id: order.orderId,
+        handler: async (response) => {
+          try {
+            const verifyRes = await fetch(`${import.meta.env.VITE_API_URL}/api/verify-payment`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                browserId
+              })
+            });
+            const verifyData = await verifyRes.json();
+
+            if (verifyData.verified) {
+              addPaidCredits(verifyData.credits, verifyData.paymentId);
+              setPaymentLoading(false);
+              // Retry session creation now that credits are available
+              createSession();
+            } else {
+              setPaymentError('Payment could not be verified. If you were charged, email hello@coprompt.net and we\'ll sort it out.');
+              setPaymentLoading(false);
+            }
+          } catch (err) {
+            setPaymentError('Payment verification failed: ' + err.message);
+            setPaymentLoading(false);
+          }
+        },
+        modal: {
+          ondismiss: () => setPaymentLoading(false)
+        },
+        theme: { color: '#111111' }
+      };
+
+      const razorpayCheckout = new window.Razorpay(options);
+      razorpayCheckout.open();
+    } catch (err) {
+      setPaymentError(err.message || 'Could not start payment');
+      setPaymentLoading(false);
+    }
+  };
+
   const createSession = async () => {
     // Check session gate
     const gate = checkSessionGate();
@@ -436,12 +524,10 @@ const handleFileUpload = async (e) => {
     }
     if (gate.action === 'upgrade') {
       saveDraft({ title, sessionType, context, mcName, mcRole, aiAnalysis });
-      window.location.href = '/#pricing-section';
-      setTimeout(() => {
-        alert('You have used all 10 free sessions.\n\nTo continue, choose a plan below or email hello@coprompt.net — we\'ll get you set up within 24 hours.');
-      }, 800);
+      handlePayment();
       return;
     }
+
     // Check rate limit
     const rateLimit = checkRateLimit();
     if (!rateLimit.allowed) {
@@ -484,6 +570,10 @@ const handleFileUpload = async (e) => {
       const newSessionId = docRef.id;
       setSessionId(newSessionId);
       setSession(sessionData);
+
+      if (gate.usingCredit) {
+        consumePaidCredit();
+      }
 
       // Generate invite links
       const baseUrl = window.location.origin;
@@ -1280,15 +1370,19 @@ const resetAndGoHome = () => {
           {/* Create Session Button */}
           <button
             onClick={createSession}
-            disabled={!title.trim() || !context.trim() || !mcName.trim() || (selectedRoles.length === 0 && customRoles.length === 0) || (mcRole === 'Other' && !mcCustomRole.trim())}
+            disabled={paymentLoading || !title.trim() || !context.trim() || !mcName.trim() || (selectedRoles.length === 0 && customRoles.length === 0) || (mcRole === 'Other' && !mcCustomRole.trim())}
             className={`w-full py-4 rounded-lg font-bold text-lg transition-colors ${
-              !title.trim() || !context.trim() || !mcName.trim() || (selectedRoles.length === 0 && customRoles.length === 0) || (mcRole === 'Other' && !mcCustomRole.trim())
+              paymentLoading || !title.trim() || !context.trim() || !mcName.trim() || (selectedRoles.length === 0 && customRoles.length === 0) || (mcRole === 'Other' && !mcCustomRole.trim())
                 ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
                 : 'bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700'
             }`}
           >
-           ✨ Share Analysis & Invite Collaborators
+           {paymentLoading ? 'Opening payment...' : '✨ Share Analysis & Invite Collaborators'}
           </button>
+
+          {paymentError && (
+            <p className="text-center text-red-400 text-sm mt-3">{paymentError}</p>
+          )}
           
           {/* Footer Tagline */}
           <p className="text-center text-slate-400 text-sm mt-6 italic">

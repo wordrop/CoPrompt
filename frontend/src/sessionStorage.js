@@ -3,6 +3,7 @@
 const STORAGE_KEY = 'coprompt_sessions';
 const ANALYTICS_KEY = 'coprompt_analytics';
 const SIGNUP_KEY = 'coprompt_signup';
+const CREDITS_KEY = 'coprompt_paid_credits';
 const FREE_SESSIONS = 3;
 const FREE_AFTER_SIGNUP = 10;
 
@@ -132,11 +133,60 @@ export const saveSignupData = (name, email) => {
   }
 };
 
+// Get remaining paid session credits
+export const getPaidCredits = () => {
+  try {
+    const val = localStorage.getItem(CREDITS_KEY);
+    return val ? parseInt(val, 10) : 0;
+  } catch (error) {
+    console.error('Error reading paid credits:', error);
+    return 0;
+  }
+};
+ 
+// Add credits after a verified payment. Idempotent per payment via paymentId guard.
+export const addPaidCredits = (count, paymentId) => {
+  try {
+    if (paymentId) {
+      const appliedKey = 'coprompt_applied_payments';
+      const applied = JSON.parse(localStorage.getItem(appliedKey) || '[]');
+      if (applied.includes(paymentId)) {
+        return getPaidCredits(); // already applied, don't double-credit
+      }
+      applied.push(paymentId);
+      localStorage.setItem(appliedKey, JSON.stringify(applied));
+    }
+    const current = getPaidCredits();
+    const updated = current + count;
+    localStorage.setItem(CREDITS_KEY, String(updated));
+    trackEvent('credits_added', { count, paymentId, newBalance: updated });
+    return updated;
+  } catch (error) {
+    console.error('Error adding paid credits:', error);
+    return getPaidCredits();
+  }
+};
+ 
+// Consume one credit when a session is created using the paid allowance
+export const consumePaidCredit = () => {
+  try {
+    const current = getPaidCredits();
+    if (current <= 0) return 0;
+    const updated = current - 1;
+    localStorage.setItem(CREDITS_KEY, String(updated));
+    return updated;
+  } catch (error) {
+    console.error('Error consuming paid credit:', error);
+    return getPaidCredits();
+  }
+};
+ 
 // Check session gate — returns what action to take
 export const checkSessionGate = () => {
   const sessions = getAllSessions();
   const count = sessions.length;
   const signup = getSignupData();
+  const credits = getPaidCredits();
 
   if (count < FREE_SESSIONS) {
     return { action: 'allow' };
