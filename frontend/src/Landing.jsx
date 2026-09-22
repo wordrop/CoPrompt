@@ -1,4 +1,5 @@
 import CoPromptLogo from './CoPromptLogo';
+import DemoVideo from './DemoVideo';
 import React, { useState, useEffect } from 'react';
 
 const Landing = ({ onStartSession }) => {
@@ -24,6 +25,10 @@ useEffect(() => {
 
   const goToDemo = () => {
     scrollToSection('demo-section');
+  };
+  const goToVideoDemo = () => {
+    scrollToSection('how-section');
+    window.dispatchEvent(new CustomEvent('coprompt:open-demo'));
   };
 
   return (
@@ -131,7 +136,7 @@ useEffect(() => {
                 Start a Session
               </button>
               <button 
-                onClick={goToDemo}
+                onClick={goToVideoDemo}
                 className="px-10 py-4 bg-white text-slate-700 rounded-lg text-lg font-semibold border-2 border-slate-200 hover:border-slate-300 transition-colors"
               >
                 Try a Hiring Demo
@@ -184,9 +189,17 @@ useEffect(() => {
       {/* How It Works Section */}
 <section id="how-section" className="py-20 bg-slate-50 px-4 sm:px-6 lg:px-8">
   <div className="max-w-6xl mx-auto">
-    <div className="text-center mb-16">
+    <div className="text-center mb-6">
       <h3 className="text-4xl font-bold text-slate-900 mb-4">How It Works</h3>
       <p className="text-xl text-slate-600">One AI. Five Steps. Complete Understanding.</p>
+    </div>
+
+    <div className="mb-16">
+      <DemoVideo
+        id="video-section"
+        heading="Watch It in Action"
+        subheading="A 65-second walkthrough — the five steps below, end to end."
+      />
     </div>
 
     <div className="space-y-16">
