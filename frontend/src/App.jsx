@@ -1,5 +1,6 @@
 import CoPromptLogo from './CoPromptLogo';
 import { useState, useEffect } from 'react';
+import ProcessIQ from './ProcessIQ';
 import { db, storage } from './firebase';
 import { collection, addDoc, doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import Landing from './Landing';
@@ -36,6 +37,10 @@ function App() {
 const currentPath = window.location.pathname;
   if (currentPath === '/privacy') return <Privacy />;
   if (currentPath === '/contact') return <Contact />;
+// Check if this is PEX mode
+if (window.location.pathname === '/processiq') {
+  return <ProcessIQ />;
+}
 // Check if this is restaurant mode
   if (window.location.pathname === '/restaurant') {
     return <RestaurantPlanner />;
