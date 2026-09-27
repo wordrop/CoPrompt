@@ -1627,18 +1627,22 @@ app.post('/processiq/extract', async (req, res) => {
     return res.status(400).json({ error: 'Process text too short' });
   }
 
-  const prompt = `You are a Process Intelligence agent trained in Lean Six Sigma and business process management.
+  const trimmedText = text.length > 8000 ? text.substring(0, 8000) + '\n[Document truncated for processing]' : text;
+  const prompt = `You are a Process Intelligence agent trained in Lean Six Sigma
 
 Your job is EXTRACTION ONLY. Do not classify steps as value-add or waste yet. Do not recommend improvements. Just model the process faithfully.
 
 RULES:
-- Every step becomes a node
+- Every step becomes a node — keep descriptions under 20 words
 - Every actor becomes an actor object
-- Every system or tool becomes a system object
+- Every system or tool becomes a system object — name only, no detail
 - Every conditional path becomes an edge with a condition
 - If a step loops back to an earlier step, mark that edge is_rework_loop: true
-- If something is ambiguous, add it to ambiguities and flag the node with needs_clarification: true
+- If something is ambiguous, add it to ambiguities array as a short string only
 - If a step involves checking, approving, reviewing, or validating — mark type as "control"
+- Keep source.raw_text under 15 words
+- Keep all string values concise — no long descriptions anywhere in the JSON
+- Maximum 25 nodes — if the process has more steps, group related steps into one node
 
 Return only valid JSON, no markdown, no explanation, matching this structure exactly:
 
@@ -1704,7 +1708,7 @@ For any control node, populate the control object:
 }
 
 Process document:
-${text}`;
+${trimmedText}`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1716,15 +1720,17 @@ ${text}`;
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 8000,
+        max_tokens: 16000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
 
     const data = await response.json();
     const raw = data.content[0].text;
-    const clean = raw.replace(/```json|```/g, '').trim();
-    const graph = JSON.parse(clean);
+const jsonMatch = raw.match(/\{[\s\S]*\}/);
+if (!jsonMatch) throw new Error('No JSON found in response');
+const clean = jsonMatch[0];
+const graph = JSON.parse(clean);
 
     res.json({ graph, tier });
 
@@ -1804,15 +1810,17 @@ ${JSON.stringify(graph)}`;
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 8000,
+        max_tokens: 16000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
 
     const data = await response.json();
     const raw = data.content[0].text;
-    const clean = raw.replace(/```json|```/g, '').trim();
-    const result = JSON.parse(clean);
+const jsonMatch = raw.match(/\{[\s\S]*\}/);
+if (!jsonMatch) throw new Error('No JSON found in response');
+const clean = jsonMatch[0];
+const result = JSON.parse(clean);
 
     // Merge classified nodes back into the original graph
     const updatedGraph = {
