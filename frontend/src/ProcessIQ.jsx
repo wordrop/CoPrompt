@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createSession, watchInvitees, buildInviteLink, getSession, getInvitee, submitFeedback } from './processiqSession.js'
 
 const TABS = ['ingest', 'asis', 'analysis', 'opportunities', 'tobe', 'gate']
 const TAB_LABELS = {
@@ -33,6 +34,107 @@ export default function ProcessIQ() {
   const [tier, setTier] = useState('impact')
   const [owningEntity, setOwningEntity] = useState('')
 
+  // Part II — session state
+  const [view, setView] = useState('main') // 'main' | 'brief' | 'session' | 'invitee'
+  const [sessionId, setSessionId] = useState(null)
+  const [invitees, setInvitees] = useState([])
+  const [inviteeStatuses, setInviteeStatuses] = useState([])
+  const [analystName, setAnalystName] = useState('')
+  const [commentary, setCommentary] = useState('')
+  const [uncertainty, setUncertainty] = useState('')
+  const [teamNeeds, setTeamNeeds] = useState('')
+  const [deadline, setDeadline] = useState('')
+  const [sessionError, setSessionError] = useState(null)
+  const [sessionLoading, setSessionLoading] = useState(false)
+  const [inviteLinks, setInviteLinks] = useState({})
+
+  // Detect invitee landing via URL token
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('token')
+    const pathParts = window.location.pathname.split('/')
+    const sessionIdx = pathParts.indexOf('session')
+    if (sessionIdx !== -1 && pathParts[sessionIdx + 1] && token) {
+      const sid = pathParts[sessionIdx + 1]
+      setSessionId(sid)
+      setView('invitee')
+    }
+  }, [])
+
+  // Watch invitee submissions when session is active
+  useEffect(() => {
+    if (!sessionId || view !== 'session') return
+    const unsub = watchInvitees(sessionId, (list) => {
+      setInviteeStatuses(list)
+    })
+    return () => unsub()
+  }, [sessionId, view])
+
+  const handleCreateSession = async () => {
+    if (!analystName.trim()) {
+      setSessionError('Please enter your name')
+      return
+    }
+    if (invitees.length === 0) {
+      setSessionError('Please add at least one invitee')
+      return
+    }
+    setSessionLoading(true)
+    setSessionError(null)
+    try {
+      const result = await createSession({
+        graph,
+        tier,
+        owningEntity,
+        analystName,
+        commentary,
+        uncertainty,
+        teamNeeds,
+        invitees,
+        deadline
+      })
+      setSessionId(result.sessionId)
+      const links = {}
+      result.invitees.forEach(inv => {
+        links[inv.token] = buildInviteLink(result.sessionId, inv.token)
+      })
+      setInviteLinks(links)
+      setView('session')
+    } catch (err) {
+      setSessionError(err.message)
+    } finally {
+      setSessionLoading(false)
+    }
+  }
+
+  const addInvitee = () => {
+    setInvitees([...invitees, {
+      name: '',
+      role: 'Manager',
+      email: '',
+      tabs: ['Analysis', 'Opportunities']
+    }])
+  }
+
+  const updateInvitee = (idx, field, value) => {
+    const updated = [...invitees]
+    updated[idx] = { ...updated[idx], [field]: value }
+    setInvitees(updated)
+  }
+
+  const toggleTab = (idx, tab) => {
+    const updated = [...invitees]
+    const tabs = updated[idx].tabs
+    updated[idx].tabs = tabs.includes(tab)
+      ? tabs.filter(t => t !== tab)
+      : [...tabs, tab]
+    setInvitees(updated)
+  }
+
+  const removeInvitee = (idx) => {
+    setInvitees(invitees.filter((_, i) => i !== idx))
+  }
+
   const handleExtract = async () => {
     setLoading(true)
     setError(null)
@@ -61,7 +163,50 @@ export default function ProcessIQ() {
       setLoading(false)
     }
   }
+// Route to invitee view
+  if (view === 'invitee') {
+    return <InviteeView sessionId={sessionId} />
+  }
 
+  // Route to improvement brief
+  if (view === 'brief') {
+    return (
+      <ImprovementBriefScreen
+        graph={graph}
+        tier={tier}
+        owningEntity={owningEntity}
+        analystName={analystName} setAnalystName={setAnalystName}
+        commentary={commentary} setCommentary={setCommentary}
+        uncertainty={uncertainty} setUncertainty={setUncertainty}
+        teamNeeds={teamNeeds} setTeamNeeds={setTeamNeeds}
+        invitees={invitees}
+        addInvitee={addInvitee}
+        updateInvitee={updateInvitee}
+        toggleTab={toggleTab}
+        removeInvitee={removeInvitee}
+        deadline={deadline} setDeadline={setDeadline}
+        onBack={() => setView('main')}
+        onCreate={handleCreateSession}
+        loading={sessionLoading}
+        error={sessionError}
+      />
+    )
+  }
+
+  // Route to session status
+  if (view === 'session') {
+    return (
+      <SessionStatusScreen
+        sessionId={sessionId}
+        graph={graph}
+        invitees={invitees}
+        inviteeStatuses={inviteeStatuses}
+        inviteLinks={inviteLinks}
+        analystName={analystName}
+        onBack={() => setView('brief')}
+      />
+    )
+  }
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f9fafb' }}>
 
@@ -112,7 +257,7 @@ export default function ProcessIQ() {
         {activeTab === 'analysis' && <AnalysisScreen graph={graph} />}
         {activeTab === 'opportunities' && <OpportunitiesScreen graph={graph} />}
         {activeTab === 'tobe' && <ToBeScreen graph={graph} />}
-        {activeTab === 'gate' && <HumanGateScreen graph={graph} setGraph={setGraph} />}
+        {activeTab === 'gate' && <HumanGateScreen graph={graph} setGraph={setGraph} onProceed={() => setView('brief')} />}
       </div>
 
     </div>
@@ -612,7 +757,7 @@ function OpportunitiesScreen({ graph }) {
         <div style={{ padding: '12px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 500, color: '#166534' }}>Estimated SUT saving if all NVA and rework eliminated</div>
-            <div style={{ fontSize: 12, color: '#15803d', marginTop: 2 }}>{totalSavingMinutes} minutes per transaction · {(totalSavingMinutes * 220).toLocaleString()} minutes per month across 220 transactions</div>
+            <div style={{ fontSize: 12, color: '#4ade80', marginTop: 2, color: '#15803d' }}>{totalSavingMinutes} minutes per transaction · {(totalSavingMinutes * 220).toLocaleString()} minutes per month across 220 transactions</div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 20, fontWeight: 500, fontFamily: 'monospace', color: '#166534' }}>{(totalSavingMinutes * 220 / 60).toFixed(0)} hrs/month</div>
@@ -885,7 +1030,7 @@ function ToBeScreen({ graph }) {
     </div>
   )
 }
-function HumanGateScreen({ graph, setGraph }) {
+function HumanGateScreen({ graph, setGraph, onProceed }) {
   if (!graph) return null
 
   const controlNodes = graph.nodes.filter(n => n.type === 'control')
@@ -995,8 +1140,8 @@ function HumanGateScreen({ graph, setGraph }) {
               : 'Gate complete. Engine 3 can now run reconstruction and simulation.'}
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-            <button style={{ padding: '10px 20px', background: '#111', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 500 }}>
-              Proceed to reconstruction →
+            <button onClick={onProceed} style={{ padding: '10px 20px', background: '#111', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 500 }}>
+              Take to team →
             </button>
             <button onClick={() => { setCurrentIdx(0) }} style={{ padding: '10px 20px', background: '#fff', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
               Review validations
@@ -1195,6 +1340,401 @@ function HumanGateScreen({ graph, setGraph }) {
           })}
         </div>
       )}
+    </div>
+  )
+}
+function ImprovementBriefScreen({
+  graph, tier, owningEntity,
+  analystName, setAnalystName,
+  commentary, setCommentary,
+  uncertainty, setUncertainty,
+  teamNeeds, setTeamNeeds,
+  invitees, addInvitee, updateInvitee, toggleTab, removeInvitee,
+  deadline, setDeadline,
+  onBack, onCreate, loading, error
+}) {
+  const ALL_TABS = ['As-is', 'Analysis', 'Opportunities', 'To-be', 'Human gate']
+  const ROLES = ['Manager', 'PEx SME', 'Controls Lead', 'Tech Lead', 'Risk', 'Finance', 'Other']
+
+  return (
+    <div style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f9fafb' }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '0 24px', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>ProcessIQ</div>
+        <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: 'monospace' }}>{graph?.meta?.name || 'Process'} · Improvement brief</div>
+        <button onClick={onBack} style={{ fontSize: 13, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}>← Back to analysis</button>
+      </div>
+
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: 24 }}>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 4 }}>Improvement brief</div>
+          <div style={{ fontSize: 13, color: '#6b7280' }}>Package your analysis and share it with your team for sign-off</div>
+        </div>
+
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '16px 20px', marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#9ca3af', marginBottom: 12 }}>Your details</div>
+          <div style={{ marginBottom: 10 }}>
+            <label style={{ fontSize: 12, color: '#374151', display: 'block', marginBottom: 5 }}>Your name</label>
+            <input
+              type="text"
+              value={analystName}
+              onChange={e => setAnalystName(e.target.value)}
+              placeholder="e.g. Priya Sharma"
+              style={{ width: '100%', padding: '8px 12px', fontSize: 13, border: '1px solid #e5e7eb', borderRadius: 8, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+            />
+          </div>
+        </div>
+
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '16px 20px', marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#9ca3af', marginBottom: 12 }}>Your improvement case</div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 12, color: '#374151', display: 'block', marginBottom: 5 }}>What are you recommending and why?</label>
+            <textarea
+              value={commentary}
+              onChange={e => setCommentary(e.target.value)}
+              placeholder="Summarise your key findings and what you are proposing to change..."
+              style={{ width: '100%', height: 80, padding: '8px 12px', fontSize: 13, border: '1px solid #e5e7eb', borderRadius: 8, resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 12, color: '#374151', display: 'block', marginBottom: 5 }}>What are you unsure about?</label>
+            <textarea
+              value={uncertainty}
+              onChange={e => setUncertainty(e.target.value)}
+              placeholder="Flag anything the team should scrutinise or validate..."
+              style={{ width: '100%', height: 56, padding: '8px 12px', fontSize: 13, border: '1px solid #e5e7eb', borderRadius: 8, resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, color: '#374151', display: 'block', marginBottom: 5 }}>What do you need from the team?</label>
+            <textarea
+              value={teamNeeds}
+              onChange={e => setTeamNeeds(e.target.value)}
+              placeholder="e.g. Controls sign-off, manager approval, tech feasibility..."
+              style={{ width: '100%', height: 56, padding: '8px 12px', fontSize: 13, border: '1px solid #e5e7eb', borderRadius: 8, resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+            />
+          </div>
+        </div>
+
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '16px 20px', marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#9ca3af', marginBottom: 12 }}>Invite your team</div>
+
+          {invitees.length === 0 && (
+            <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 12, fontStyle: 'italic' }}>No invitees yet. Add your first team member below.</div>
+          )}
+
+          {invitees.map((inv, idx) => (
+            <div key={idx} style={{ border: '1px solid #f3f4f6', borderRadius: 8, padding: '12px 14px', marginBottom: 10, background: '#fafafa' }}>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 11, color: '#6b7280', display: 'block', marginBottom: 4 }}>Name</label>
+                  <input
+                    type="text"
+                    value={inv.name}
+                    onChange={e => updateInvitee(idx, 'name', e.target.value)}
+                    placeholder="Full name"
+                    style={{ width: '100%', padding: '6px 10px', fontSize: 13, border: '1px solid #e5e7eb', borderRadius: 6, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div style={{ width: 140 }}>
+                  <label style={{ fontSize: 11, color: '#6b7280', display: 'block', marginBottom: 4 }}>Role</label>
+                  <select
+                    value={inv.role}
+                    onChange={e => updateInvitee(idx, 'role', e.target.value)}
+                    style={{ width: '100%', padding: '6px 10px', fontSize: 13, border: '1px solid #e5e7eb', borderRadius: 6, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', background: '#fff' }}
+                  >
+                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 11, color: '#6b7280', display: 'block', marginBottom: 4 }}>Email</label>
+                  <input
+                    type="email"
+                    value={inv.email}
+                    onChange={e => updateInvitee(idx, 'email', e.target.value)}
+                    placeholder="email@company.com"
+                    style={{ width: '100%', padding: '6px 10px', fontSize: 13, border: '1px solid #e5e7eb', borderRadius: 6, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <button
+                  onClick={() => removeInvitee(idx)}
+                  style={{ alignSelf: 'flex-end', padding: '6px 10px', fontSize: 12, color: '#ef4444', background: 'none', border: '1px solid #fecaca', borderRadius: 6, cursor: 'pointer' }}
+                >
+                  Remove
+                </button>
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: '#6b7280', display: 'block', marginBottom: 6 }}>Tabs this person can provide feedback on</label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {ALL_TABS.map(tab => (
+                    <div
+                      key={tab}
+                      onClick={() => toggleTab(idx, tab)}
+                      style={{
+                        fontSize: 11, padding: '3px 9px', borderRadius: 10, cursor: 'pointer',
+                        border: inv.tabs.includes(tab) ? '1px solid #374151' : '1px solid #e5e7eb',
+                        background: inv.tabs.includes(tab) ? '#f3f4f6' : '#fff',
+                        color: inv.tabs.includes(tab) ? '#111' : '#9ca3af',
+                        fontWeight: inv.tabs.includes(tab) ? 500 : 400
+                      }}
+                    >
+                      {tab}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <button
+            onClick={addInvitee}
+            style={{ fontSize: 13, padding: '7px 14px', border: '1px solid #e5e7eb', borderRadius: 8, cursor: 'pointer', background: '#fff', color: '#374151' }}
+          >
+            + Add team member
+          </button>
+        </div>
+
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '14px 20px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3 }}>Deadline (optional)</div>
+            <div style={{ fontSize: 12, color: '#9ca3af' }}>You are notified if not all submitted by then</div>
+          </div>
+          <input
+            type="date"
+            value={deadline}
+            onChange={e => setDeadline(e.target.value)}
+            style={{ fontSize: 13, padding: '6px 10px', border: '1px solid #e5e7eb', borderRadius: 8, outline: 'none' }}
+          />
+        </div>
+
+        {error && (
+          <div style={{ marginBottom: 16, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 13, color: '#991b1b' }}>
+            {error}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            onClick={onCreate}
+            disabled={loading}
+            style={{ padding: '10px 24px', fontSize: 14, fontWeight: 500, background: loading ? '#e5e7eb' : '#111', color: loading ? '#9ca3af' : '#fff', border: 'none', borderRadius: 8, cursor: loading ? 'not-allowed' : 'pointer' }}
+          >
+            {loading ? 'Creating session...' : 'Send invites and start session →'}
+          </button>
+          <button onClick={onBack} style={{ padding: '10px 16px', fontSize: 13, background: '#fff', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: 8, cursor: 'pointer' }}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SessionStatusScreen({ sessionId, graph, invitees, inviteeStatuses, inviteLinks, analystName, onBack }) {
+  const [copied, setCopied] = useState(null)
+
+  const copyLink = (token, link) => {
+    navigator.clipboard.writeText(link)
+    setCopied(token)
+    setTimeout(() => setCopied(null), 2000)
+  }
+
+  const submittedCount = inviteeStatuses.filter(i => i.submitted).length
+  const totalCount = inviteeStatuses.length || invitees.length
+
+  return (
+    <div style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f9fafb' }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '0 24px', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>ProcessIQ</div>
+        <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: 'monospace' }}>{graph?.meta?.name || 'Process'} · Session active</div>
+        <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: '#dcfce7', color: '#166534', fontWeight: 500 }}>
+          {submittedCount} of {totalCount} submitted
+        </span>
+      </div>
+
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: 24 }}>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 4 }}>Session status</div>
+          <div style={{ fontSize: 13, color: '#6b7280' }}>Session ID: <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{sessionId}</span></div>
+        </div>
+
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden', marginBottom: 12 }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: 13, fontWeight: 500 }}>Team submissions</div>
+            <div style={{ fontSize: 12, color: '#6b7280' }}>{submittedCount} of {totalCount} submitted</div>
+          </div>
+
+          <div style={{ padding: '8px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid #f9fafb' }}>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#EAF3DE', color: '#27500A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 500, flexShrink: 0 }}>
+                {analystName ? analystName[0] : 'A'}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 500 }}>{analystName || 'You'} (Analyst)</div>
+                <div style={{ fontSize: 11, color: '#9ca3af' }}>All tabs · Session creator</div>
+              </div>
+              <div style={{ fontSize: 11, color: '#166534' }}>Submitted</div>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#639922', flexShrink: 0 }}></div>
+            </div>
+
+            {inviteeStatuses.length > 0 ? inviteeStatuses.map((inv) => (
+              <div key={inv.token} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid #f9fafb' }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#E6F1FB', color: '#0C447C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 500, flexShrink: 0 }}>
+                  {inv.name ? inv.name[0] : '?'}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{inv.name || 'Invitee'}</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af' }}>{inv.role} · {inv.tabs?.join(', ')}</div>
+                </div>
+                {inv.submitted ? (
+                  <div style={{ fontSize: 11, color: '#166534' }}>Submitted</div>
+                ) : (
+                  <button
+                    onClick={() => copyLink(inv.token, inviteLinks[inv.token])}
+                    style={{ fontSize: 11, padding: '4px 10px', border: '1px solid #e5e7eb', borderRadius: 6, cursor: 'pointer', background: '#fff', color: copied === inv.token ? '#166534' : '#374151' }}
+                  >
+                    {copied === inv.token ? '✓ Copied' : 'Copy link'}
+                  </button>
+                )}
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: inv.submitted ? '#639922' : '#d1d5db', flexShrink: 0 }}></div>
+              </div>
+            )) : invitees.map((inv, idx) => (
+              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid #f9fafb' }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#E6F1FB', color: '#0C447C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 500, flexShrink: 0 }}>
+                  {inv.name ? inv.name[0] : '?'}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{inv.name}</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af' }}>{inv.role} · {inv.tabs?.join(', ')}</div>
+                </div>
+                <div style={{ fontSize: 11, color: '#9ca3af' }}>Pending</div>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#d1d5db', flexShrink: 0 }}></div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {submittedCount < totalCount && (
+          <div style={{ padding: '12px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 13, color: '#92400e', marginBottom: 12 }}>
+            {totalCount - submittedCount} invitee{totalCount - submittedCount !== 1 ? 's' : ''} yet to submit. You can follow up offline or run synthesis with current inputs.
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            style={{ padding: '10px 20px', background: '#111', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 500 }}
+          >
+            Run synthesis →
+          </button>
+          <button onClick={onBack} style={{ padding: '10px 14px', fontSize: 13, background: '#fff', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: 8, cursor: 'pointer' }}>
+            ← Back to brief
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function InviteeView({ sessionId }) {
+  const [session, setSession] = useState(null)
+  const [invitee, setInvitee] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('token')
+    if (!token || !sessionId) {
+      setError('Invalid session link')
+      setLoading(false)
+      return
+    }
+    Promise.all([getSession(sessionId), getInvitee(sessionId, token)])
+      .then(([sess, inv]) => {
+        if (!sess) { setError('Session not found'); return }
+        if (!inv) { setError('Invalid token'); return }
+        setSession(sess)
+        setInvitee(inv)
+      })
+      .catch(() => setError('Failed to load session'))
+      .finally(() => setLoading(false))
+  }, [sessionId])
+
+  if (loading) return (
+    <div style={{ fontFamily: 'system-ui, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: '#6b7280', fontSize: 14 }}>
+      Loading your session...
+    </div>
+  )
+
+  if (error) return (
+    <div style={{ fontFamily: 'system-ui, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 16, fontWeight: 500, color: '#111', marginBottom: 8 }}>Session not found</div>
+        <div style={{ fontSize: 13, color: '#9ca3af' }}>{error}</div>
+      </div>
+    </div>
+  )
+
+  return (
+    <div style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f9fafb' }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '0 24px', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>ProcessIQ</div>
+        <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: 'monospace' }}>{session?.graph?.meta?.name || 'Process'}</div>
+        <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: '#eff6ff', color: '#1d4ed8', fontWeight: 500 }}>{invitee?.role}</span>
+      </div>
+
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: 24 }}>
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '14px 18px', marginBottom: 20 }}>
+          <div style={{ fontSize: 14, fontWeight: 500, color: '#1e40af', marginBottom: 4 }}>
+            Welcome, {invitee?.name}
+          </div>
+          <div style={{ fontSize: 13, color: '#1e40af' }}>
+            You have been invited as <strong>{invitee?.role}</strong> to review this process improvement analysis.
+            Your input is needed on: <strong>{invitee?.tabs?.join(', ')}</strong>.
+          </div>
+        </div>
+
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '16px 20px', marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#9ca3af', marginBottom: 10 }}>Analyst's brief</div>
+          {session?.commentary?.recommendation && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Recommendation</div>
+              <div style={{ fontSize: 13, color: '#111', lineHeight: 1.6 }}>{session.commentary.recommendation}</div>
+            </div>
+          )}
+          {session?.commentary?.uncertainty && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>What the analyst is unsure about</div>
+              <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.6 }}>{session.commentary.uncertainty}</div>
+            </div>
+          )}
+          {session?.commentary?.team_needs && (
+            <div>
+              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>What they need from the team</div>
+              <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.6 }}>{session.commentary.team_needs}</div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#9ca3af', marginBottom: 10 }}>Process summary</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            {[
+              { label: 'Total steps', value: session?.graph?.nodes?.length || 0 },
+              { label: 'NVA steps', value: session?.graph?.nodes?.filter(n => n.lean?.classification === 'NVA').length || 0 },
+              { label: 'Controls', value: session?.graph?.nodes?.filter(n => n.type === 'control').length || 0 },
+            ].map(s => (
+              <div key={s.label} style={{ background: '#f9fafb', borderRadius: 8, padding: '10px 12px' }}>
+                <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>{s.label}</div>
+                <div style={{ fontSize: 20, fontWeight: 500, fontFamily: 'monospace' }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ textAlign: 'center', padding: 20, color: '#9ca3af', fontSize: 13 }}>
+          Full feedback form coming soon — your assigned tabs will appear here.
+        </div>
+      </div>
     </div>
   )
 }

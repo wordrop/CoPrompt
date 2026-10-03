@@ -38,7 +38,7 @@ const currentPath = window.location.pathname;
   if (currentPath === '/privacy') return <Privacy />;
   if (currentPath === '/contact') return <Contact />;
 // Check if this is PEX mode
-if (window.location.pathname === '/processiq') {
+if (window.location.pathname.startsWith('/processiq')) {
   return <ProcessIQ />;
 }
 // Check if this is restaurant mode
